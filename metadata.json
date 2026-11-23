@@ -1,0 +1,6 @@
+{
+  "name": "Agenda Escolar",
+  "description": "Aplicativo completo de agenda escolar com controle de tarefas e lições, eventos e provas oficiais, grade e horários das matérias da semana, calendário letivo, cardápio da merenda (PNAE), espaço de jogos educativos para a hora do recreio e modo Ninja.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
