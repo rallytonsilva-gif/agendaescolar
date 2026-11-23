@@ -30,10 +30,12 @@ export type ThemeMode = 'light' | 'dark';
 
 export type DayOfWeek = 'segunda' | 'terca' | 'quarta' | 'quinta' | 'sexta';
 export type MealType = 'merenda_manha' | 'almoco' | 'merenda_tarde';
+export type GradeSeries = '1_serie' | '2_serie' | '3_serie';
 
 export interface ClassPeriod {
   id: string;
-  periodNumber: number; // 1, 2, 3, 4, 5
+  gradeSeries?: GradeSeries;
+  periodNumber: number; // 1, 2, 3, 4, 5, 6, 7, 8
   startTime: string; // "07:30"
   endTime: string; // "08:20"
   dayOfWeek: DayOfWeek;

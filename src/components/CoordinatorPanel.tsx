@@ -42,6 +42,7 @@ interface CoordinatorPanelProps {
   ) => void;
   onUpdateEvent: (updated: SchoolEvent) => void;
   onDeleteEvent: (id: string) => void;
+  onDeleteAllEvents?: () => void;
   onResetDefaultEvents: () => void;
   onSwitchToStudent: () => void;
 }
@@ -53,12 +54,14 @@ export const CoordinatorPanel: React.FC<CoordinatorPanelProps> = ({
   onAddEvent,
   onUpdateEvent,
   onDeleteEvent,
+  onDeleteAllEvents,
   onResetDefaultEvents,
   onSwitchToStudent,
 }) => {
   const [editingEvent, setEditingEvent] = useState<SchoolEvent | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('todas');
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
 
   // Stats
   const stats = useMemo(() => {
@@ -220,11 +223,45 @@ export const CoordinatorPanel: React.FC<CoordinatorPanelProps> = ({
               type="button"
               onClick={onResetDefaultEvents}
               className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition flex items-center gap-1.5 cursor-pointer"
-              title="Restaurar eventos padrão da escola"
+              title="Restaurar dados padrão da escola"
             >
               <RotateCcw className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               Restaurar Padrão
             </button>
+            {onDeleteAllEvents && events.length > 0 && (
+              confirmDeleteAll ? (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmDeleteAll(false);
+                      onDeleteAllEvents();
+                    }}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Confirmar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteAll(false)}
+                    className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteAll(true)}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 transition flex items-center gap-1.5 cursor-pointer"
+                  title="Remover todos os eventos e provas"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Excluir Todos
+                </button>
+              )
+            )}
           </div>
         </div>
 

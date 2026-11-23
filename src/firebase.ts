@@ -28,6 +28,7 @@ import {
   SchoolEvent,
   SchoolMeal,
   ClassPeriod,
+  GradeSeries,
   EventCategory,
   DayOfWeek,
   MealType,
@@ -207,9 +208,15 @@ function buildTaskCreateDoc(task: Task, authorUid: string) {
   };
 }
 
+function normalizeGradeSeries(value: unknown): GradeSeries {
+  if (value === '2_serie' || value === '3_serie') return value;
+  return '1_serie';
+}
+
 function buildPeriodDoc(period: ClassPeriod, authorUid: string) {
   const docData: Record<string, unknown> = {
     id: sanitizeId(period.id, 'sch'),
+    gradeSeries: normalizeGradeSeries(period.gradeSeries),
     dayOfWeek: period.dayOfWeek,
     periodNumber: Math.min(8, Math.max(1, Number(period.periodNumber) || 1)),
     startTime: clampStr(period.startTime, 10) || '07:30',
@@ -333,6 +340,7 @@ export function subscribeSchedule(
         const raw = d.data();
         return {
           id: String(raw.id || d.id),
+          gradeSeries: normalizeGradeSeries(raw.gradeSeries),
           dayOfWeek: (raw.dayOfWeek as DayOfWeek) || 'segunda',
           periodNumber: Number(raw.periodNumber) || 1,
           startTime: String(raw.startTime || '07:30'),
@@ -519,6 +527,21 @@ async function replaceCollection(
   await batch.commit();
 }
 
+export const LEGACY_EVENTS_CUTOFF_MS = 1795455530000;
+
+export async function deleteAllEventsInFirestore(): Promise<void> {
+  const path = 'events';
+  try {
+    const snap = await getDocs(collection(db, path));
+    if (snap.empty) return;
+    const batch = writeBatch(db);
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
 export async function seedEmptyCollectionsIfNeeded(authorUid: string): Promise<void> {
   try {
     const [evSnap, taskSnap, schSnap, mealSnap] = await Promise.all([
@@ -531,13 +554,15 @@ export async function seedEmptyCollectionsIfNeeded(authorUid: string): Promise<v
     const batch = writeBatch(db);
     let ops = 0;
 
-    if (evSnap.empty) {
-      DEFAULT_EVENTS.forEach((ev) => {
-        const id = sanitizeId(ev.id, 'ev');
-        batch.set(doc(db, 'events', id), buildEventCreateDoc({ ...ev, id }, authorUid));
+    // Remove legacy pre-populated events/exams created prior to cleanup
+    evSnap.docs.forEach((d) => {
+      const createdAtMs = toMillis(d.data().createdAt) ?? 0;
+      if (createdAtMs <= LEGACY_EVENTS_CUTOFF_MS) {
+        batch.delete(d.ref);
         ops++;
-      });
-    }
+      }
+    });
+
     if (taskSnap.empty) {
       DEFAULT_TASKS.forEach((t) => {
         const id = sanitizeId(t.id, 'task');
@@ -550,6 +575,18 @@ export async function seedEmptyCollectionsIfNeeded(authorUid: string): Promise<v
         const id = sanitizeId(p.id, 'sch');
         batch.set(doc(db, 'schedule', id), buildPeriodDoc({ ...p, id }, authorUid));
         ops++;
+      });
+    } else {
+      const existingSeries = new Set<GradeSeries>(
+        schSnap.docs.map((d) => normalizeGradeSeries(d.data().gradeSeries))
+      );
+      DEFAULT_SCHEDULE.forEach((p) => {
+        const series = normalizeGradeSeries(p.gradeSeries);
+        if (!existingSeries.has(series)) {
+          const id = sanitizeId(p.id, 'sch');
+          batch.set(doc(db, 'schedule', id), buildPeriodDoc({ ...p, id }, authorUid));
+          ops++;
+        }
       });
     }
     if (mealSnap.empty) {
@@ -568,8 +605,35 @@ export async function seedEmptyCollectionsIfNeeded(authorUid: string): Promise<v
   }
 }
 
-export async function resetScheduleInFirestore(authorUid: string): Promise<void> {
+export async function resetScheduleInFirestore(
+  authorUid: string,
+  targetSeries?: GradeSeries
+): Promise<void> {
   try {
+    if (targetSeries) {
+      const snapshot = await getDocs(collection(db, 'schedule'));
+      const targetDefaults = DEFAULT_SCHEDULE.filter(
+        (p) => normalizeGradeSeries(p.gradeSeries) === targetSeries
+      );
+      const incomingIds = new Set(targetDefaults.map((p) => sanitizeId(p.id, 'sch')));
+      const batch = writeBatch(db);
+
+      snapshot.docs.forEach((existingDoc) => {
+        const docSeries = normalizeGradeSeries(existingDoc.data().gradeSeries);
+        if (docSeries === targetSeries && !incomingIds.has(existingDoc.id)) {
+          batch.delete(existingDoc.ref);
+        }
+      });
+
+      targetDefaults.forEach((p) => {
+        const id = sanitizeId(p.id, 'sch');
+        batch.set(doc(db, 'schedule', id), buildPeriodDoc({ ...p, id }, authorUid));
+      });
+
+      await batch.commit();
+      return;
+    }
+
     await replaceCollection(
       'schedule',
       DEFAULT_SCHEDULE.map((p) => {

@@ -119,6 +119,10 @@
           "maxLength": 128,
           "pattern": "^[a-zA-Z0-9_\\-]+$"
         },
+        "gradeSeries": {
+          "type": "string",
+          "enum": ["1_serie", "2_serie", "3_serie"]
+        },
         "dayOfWeek": {
           "type": "string",
           "enum": ["segunda", "terca", "quarta", "quinta", "sexta"]

@@ -1,4 +1,4 @@
-import { Task, SchoolEvent, EventCategory, UserRole, ThemeMode, SchoolMeal, DayOfWeek, MealType, ClassPeriod } from '../types';
+import { Task, SchoolEvent, EventCategory, UserRole, ThemeMode, SchoolMeal, DayOfWeek, MealType, ClassPeriod, GradeSeries } from '../types';
 
 export const STORAGE_KEY = '@school_agenda_tasks';
 export const EVENTS_STORAGE_KEY = '@school_agenda_events';
@@ -10,6 +10,7 @@ export const THEME_STORAGE_KEY = '@school_agenda_theme';
 export const SCHEDULE_MIGRATION_KEY = '@school_agenda_schedule_8periods_migrated';
 export const DATA_VERSION_KEY = '@school_agenda_data_version';
 export const COMPLETED_TASK_IDS_KEY = '@school_agenda_completed_task_ids';
+export const SELECTED_SERIES_STORAGE_KEY = '@school_agenda_selected_series';
 export const CURRENT_DATA_VERSION = '2026-11-23-v2';
 
 export const DEFAULT_TASKS: Task[] = [
@@ -51,256 +52,7 @@ export const DEFAULT_TASKS: Task[] = [
   },
 ];
 
-export const DEFAULT_EVENTS: SchoolEvent[] = [
-  // ==================== FERIADOS & DATAS OFICIAIS 2026 ====================
-  {
-    id: 'feriado-2026-01-01',
-    title: 'Feriado Nacional — Confraternização Universal (Ano Novo)',
-    category: 'feriado',
-    date: '01/01/2026',
-    location: 'Escola fechada',
-    description: 'Feriado nacional de celebração do Ano Novo. Sem expediente escolar.',
-    createdBy: 'Calendário Nacional Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-02-16',
-    title: 'Carnaval — Segunda-feira de Recesso Escolar',
-    category: 'feriado',
-    date: '16/02/2026',
-    location: 'Escola fechada',
-    description: 'Ponto facultativo e recesso de Carnaval. Não haverá aula.',
-    createdBy: 'Calendário Escolar Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-02-17',
-    title: 'Carnaval — Terça-feira de Feriado',
-    category: 'feriado',
-    date: '17/02/2026',
-    location: 'Escola fechada',
-    description: 'Feriado de Carnaval. Sem atividades letivas.',
-    createdBy: 'Calendário Escolar Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-02-18',
-    title: 'Quarta-feira de Cinzas — Recesso Escolar',
-    category: 'feriado',
-    date: '18/02/2026',
-    location: 'Escola fechada',
-    description: 'Recesso escolar de Quarta-feira de Cinzas.',
-    createdBy: 'Calendário Escolar Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-04-03',
-    title: 'Feriado Nacional — Sexta-feira Santa (Paixão de Cristo)',
-    category: 'feriado',
-    date: '03/04/2026',
-    location: 'Escola fechada',
-    description: 'Feriado religioso nacional. Não haverá expediente nem aulas.',
-    createdBy: 'Calendário Nacional Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-04-05',
-    title: 'Domingo de Páscoa',
-    category: 'feriado',
-    date: '05/04/2026',
-    location: 'Comemoração',
-    description: 'Celebração da Páscoa.',
-    createdBy: 'Calendário Nacional Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-04-21',
-    title: 'Feriado Nacional — Tiradentes (Inconfidência Mineira)',
-    category: 'feriado',
-    date: '21/04/2026',
-    location: 'Escola fechada',
-    description: 'Homenagem a Joaquim José da Silva Xavier (Tiradentes). Não haverá aula.',
-    createdBy: 'Calendário Nacional Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-05-01',
-    title: 'Feriado Nacional — Dia Mundial do Trabalho',
-    category: 'feriado',
-    date: '01/05/2026',
-    location: 'Escola fechada',
-    description: 'Celebração e homenagem aos trabalhadores. Sem expediente escolar.',
-    createdBy: 'Calendário Nacional Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-06-04',
-    title: 'Corpus Christi — Ponto Facultativo / Recesso Escolar',
-    category: 'feriado',
-    date: '04/06/2026',
-    location: 'Escola fechada',
-    description: 'Recesso escolar e celebração de Corpus Christi. Não haverá aula.',
-    createdBy: 'Calendário Escolar Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'e1',
-    title: 'Prova Bimestral de Matemática & Física',
-    category: 'prova',
-    date: '26/08/2026',
-    time: '07:30',
-    location: 'Sala 14 - Bloco B',
-    subject: 'Matemática',
-    description: 'Trazer calculadora científica, régua e caneta azul ou preta.',
-    createdBy: 'Coordenação Pedagógica',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'e2',
-    title: 'Feira Anual de Ciências & Inovação',
-    category: 'evento',
-    date: '02/09/2026',
-    time: '09:00',
-    location: 'Ginásio Poliesportivo',
-    subject: 'Ciências',
-    description: 'Apresentação dos projetos de robótica e experimentos biológicos abertos à comunidade.',
-    createdBy: 'Coordenação Pedagógica',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'e3',
-    title: 'Reunião de Pais e Mestres (3º Bimestre)',
-    category: 'reuniao',
-    date: '05/09/2026',
-    time: '18:30',
-    location: 'Auditório Principal',
-    description: 'Entrega dos boletins escolares e alinhamento do desempenho pedagógico.',
-    createdBy: 'Diretoria Escolar',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'e4',
-    title: 'Feriado Nacional — Independência do Brasil',
-    category: 'feriado',
-    date: '07/09/2026',
-    location: 'Escola fechada',
-    description: 'Comemoração dos 204 anos da Proclamação da Independência. Não haverá aula.',
-    createdBy: 'Coordenação Pedagógica',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'e5',
-    title: 'Apresentação do Seminário de Literatura',
-    category: 'trabalho',
-    date: '10/09/2026',
-    time: '10:15',
-    location: 'Sala de Vídeo',
-    subject: 'Literatura',
-    description: 'Grupo 3: Modernismo no Brasil (Semana de Arte Moderna de 1922).',
-    createdBy: 'Profª. de Literatura / Coordenação',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-10-12',
-    title: 'Feriado Nacional — N. Sra. Aparecida & Dia das Crianças',
-    category: 'feriado',
-    date: '12/10/2026',
-    location: 'Escola fechada',
-    description: 'Feriado nacional da Padroeira do Brasil e Dia das Crianças.',
-    createdBy: 'Calendário Nacional Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-10-15',
-    title: 'Dia do Professor — Feriado Escolar',
-    category: 'feriado',
-    date: '15/10/2026',
-    location: 'Escola fechada',
-    description: 'Dia do Professor. Homenagem a todos os educadores e recesso escolar.',
-    createdBy: 'Calendário Escolar Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-10-19',
-    title: 'Feriado Estadual — Dia do Piauí',
-    category: 'feriado',
-    date: '19/10/2026',
-    location: 'Escola fechada',
-    description: 'Comemoração da adesão do Piauí à Independência do Brasil. Feriado estadual.',
-    createdBy: 'Governo do Estado do Piauí',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-10-28',
-    title: 'Dia do Servidor Público — Recesso Escolar',
-    category: 'feriado',
-    date: '28/10/2026',
-    location: 'Escola fechada',
-    description: 'Ponto facultativo nas repartições e instituições públicas de ensino.',
-    createdBy: 'Calendário Escolar Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-11-02',
-    title: 'Feriado Nacional — Finados',
-    category: 'feriado',
-    date: '02/11/2026',
-    location: 'Escola fechada',
-    description: 'Dia de Finados. Não haverá expediente letivo.',
-    createdBy: 'Calendário Nacional Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-11-15',
-    title: 'Feriado Nacional — Proclamação da República',
-    category: 'feriado',
-    date: '15/11/2026',
-    location: 'Escola fechada',
-    description: 'Comemoração da Proclamação da República em 1889.',
-    createdBy: 'Calendário Nacional Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-11-20',
-    title: 'Feriado Nacional — Dia da Consciência Negra (Zumbi dos Palmares)',
-    category: 'feriado',
-    date: '20/11/2026',
-    location: 'Escola fechada',
-    description: 'Feriado nacional de valorização da cultura afro-brasileira e memória de Zumbi dos Palmares.',
-    createdBy: 'Calendário Nacional Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-12-24',
-    title: 'Véspera de Natal — Recesso de Fim de Ano',
-    category: 'feriado',
-    date: '24/12/2026',
-    location: 'Escola fechada',
-    description: 'Início do recesso escolar de fim de ano.',
-    createdBy: 'Calendário Escolar Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-12-25',
-    title: 'Feriado Nacional — Natal',
-    category: 'feriado',
-    date: '25/12/2026',
-    location: 'Escola fechada',
-    description: 'Celebração do Natal. Recesso escolar.',
-    createdBy: 'Calendário Nacional Oficial',
-    createdAt: 1767225600000,
-  },
-  {
-    id: 'feriado-2026-12-31',
-    title: 'Véspera de Ano Novo — Recesso Escolar',
-    category: 'feriado',
-    date: '31/12/2026',
-    location: 'Escola fechada',
-    description: 'Encerramento do ano letivo de 2026.',
-    createdBy: 'Calendário Escolar Oficial',
-    createdAt: 1767225600000,
-  },
-];
+export const DEFAULT_EVENTS: SchoolEvent[] = [];
 
 export const DEFAULT_MEALS: SchoolMeal[] = [
   // Segunda-feira
@@ -525,7 +277,37 @@ export const CLASS_PERIOD_SLOTS: PeriodSlotDefinition[] = [
   { periodNumber: 8, startTime: '14:50', endTime: '15:40', label: '8º Horário' },
 ];
 
-export const DEFAULT_SCHEDULE: ClassPeriod[] = [
+export const GRADE_SERIES_OPTIONS: Array<{ id: GradeSeries; label: string; shortLabel: string; roomLabel: string }> = [
+  { id: '1_serie', label: '1ª Série', shortLabel: '1ª Série', roomLabel: 'Sala 102' },
+  { id: '2_serie', label: '2ª Série', shortLabel: '2ª Série', roomLabel: 'Sala 201' },
+  { id: '3_serie', label: '3ª Série', shortLabel: '3ª Série', roomLabel: 'Sala 301' },
+];
+
+export function getGradeSeriesLabel(series?: GradeSeries): string {
+  return GRADE_SERIES_OPTIONS.find((s) => s.id === series)?.label || '1ª Série';
+}
+
+export function getStoredGradeSeries(): GradeSeries {
+  try {
+    const raw = localStorage.getItem(SELECTED_SERIES_STORAGE_KEY);
+    if (raw === '1_serie' || raw === '2_serie' || raw === '3_serie') {
+      return raw;
+    }
+    return '1_serie';
+  } catch {
+    return '1_serie';
+  }
+}
+
+export function saveStoredGradeSeries(series: GradeSeries): void {
+  try {
+    localStorage.setItem(SELECTED_SERIES_STORAGE_KEY, series);
+  } catch (error) {
+    console.error('Erro ao salvar série selecionada:', error);
+  }
+}
+
+const FIRST_SERIES_BASE_SCHEDULE: ClassPeriod[] = [
   // Segunda-feira
   {
     id: 'sch-seg-1',
@@ -975,6 +757,130 @@ export const DEFAULT_SCHEDULE: ClassPeriod[] = [
     room: 'Pátio Central',
     notes: 'Assembleia Semanal e Apresentações',
   },
+];
+
+const SECOND_SERIES_SUBJECT_ROTATION: Record<string, { subject: string; teacher: string; notes: string }> = {
+  'segunda-1': { subject: 'Português', teacher: 'Profa. Juliana Castro', notes: 'Morfossintaxe e Semântica' },
+  'segunda-2': { subject: 'Literatura', teacher: 'Profa. Juliana Castro', notes: 'Romantismo e Realismo Brasileiro' },
+  'segunda-3': { subject: 'Matemática', teacher: 'Prof. Ricardo Mendes', notes: 'Matrizes, Determinantes e Sistemas' },
+  'segunda-4': { subject: 'Matemática', teacher: 'Prof. Ricardo Mendes', notes: 'Resolução de Problemas em Álgebra' },
+  'segunda-5': { subject: 'Física', teacher: 'Prof. André Santos', notes: 'Termologia e Calorimetria' },
+  'segunda-6': { subject: 'Química', teacher: 'Prof. Felipe Albuquerque', notes: 'Termoquímica e Cinética' },
+  'segunda-7': { subject: 'Inglês', teacher: 'Profa. Beatrice King', notes: 'Gramática Contextualizada e Leitura' },
+  'segunda-8': { subject: 'Estudos Orientados', teacher: 'Coordenação Pedagógica', notes: 'Planejamento Semanal da 2ª Série' },
+
+  'terca-1': { subject: 'História', teacher: 'Prof. Carlos Eduardo', notes: 'Brasil Império e Primeiro Reinado' },
+  'terca-2': { subject: 'Geografia', teacher: 'Profa. Mariana Lima', notes: 'Industrialização e Urbanização' },
+  'terca-3': { subject: 'Biologia', teacher: 'Profa. Vanessa Torres', notes: 'Fisiologia Humana e Sistemas' },
+  'terca-4': { subject: 'Biologia', teacher: 'Profa. Vanessa Torres', notes: 'Prática de Microscopia' },
+  'terca-5': { subject: 'Redação', teacher: 'Profa. Juliana Castro', notes: 'Argumentação e Repertório Sociocultural' },
+  'terca-6': { subject: 'Ciências', teacher: 'Prof. Thiago Moura', notes: 'Robótica Aplicada e Sensores' },
+  'terca-7': { subject: 'Filosofia', teacher: 'Prof. Olavo Medeiros', notes: 'Filosofia Moderna e Racionalismo' },
+  'terca-8': { subject: 'Projeto de Vida', teacher: 'Prof. Olavo Medeiros', notes: 'Carreiras e Trilhas Formativas' },
+
+  'quarta-1': { subject: 'Matemática', teacher: 'Prof. Ricardo Mendes', notes: 'Trigonometria no Ciclo' },
+  'quarta-2': { subject: 'Física', teacher: 'Prof. André Santos', notes: 'Óptica Geométrica e Espelhos' },
+  'quarta-3': { subject: 'Química', teacher: 'Prof. Felipe Albuquerque', notes: 'Equilíbrio Químico e pH' },
+  'quarta-4': { subject: 'Educação Física', teacher: 'Prof. Marcos Rogério', notes: 'Voleibol e Treinamento Funcional' },
+  'quarta-5': { subject: 'Sociologia', teacher: 'Profa. Amanda Rocha', notes: 'Trabalho, Estruturas Sociais e Cultura' },
+  'quarta-6': { subject: 'Português', teacher: 'Profa. Juliana Castro', notes: 'Coesão e Coerência Textual' },
+  'quarta-7': { subject: 'Espanhol', teacher: 'Profa. Beatrice King', notes: 'Interpretação de Textos Hispânicos' },
+  'quarta-8': { subject: 'Artes', teacher: 'Profa. Cecília Meireles', notes: 'Arte Moderna e Linguagens Visuais' },
+
+  'quinta-1': { subject: 'Química', teacher: 'Prof. Felipe Albuquerque', notes: 'Eletroquímica e Pilhas' },
+  'quinta-2': { subject: 'Biologia', teacher: 'Profa. Vanessa Torres', notes: 'Botânica e Fisiologia Vegetal' },
+  'quinta-3': { subject: 'Matemática', teacher: 'Prof. Ricardo Mendes', notes: 'Análise Combinatória e Probabilidade' },
+  'quinta-4': { subject: 'História', teacher: 'Prof. Carlos Eduardo', notes: 'Revoluções Industriais e Imperialismo' },
+  'quinta-5': { subject: 'Geografia', teacher: 'Profa. Mariana Lima', notes: 'Geografia Agrária e Recursos Naturais' },
+  'quinta-6': { subject: 'Física', teacher: 'Prof. André Santos', notes: 'Laboratório de Ondulatória' },
+  'quinta-7': { subject: 'Redação', teacher: 'Profa. Juliana Castro', notes: 'Oficina de Proposta de Intervenção' },
+  'quinta-8': { subject: 'Literatura', teacher: 'Profa. Juliana Castro', notes: 'Análise de Obras Literárias' },
+
+  'sexta-1': { subject: 'Física', teacher: 'Prof. André Santos', notes: 'Eletrostática Inicial' },
+  'sexta-2': { subject: 'Português', teacher: 'Profa. Juliana Castro', notes: 'Revisão Gramatical e Simulados' },
+  'sexta-3': { subject: 'História', teacher: 'Prof. Carlos Eduardo', notes: 'República Velha no Brasil' },
+  'sexta-4': { subject: 'Geografia', teacher: 'Profa. Mariana Lima', notes: 'Regionalização Brasileira' },
+  'sexta-5': { subject: 'Matemática', teacher: 'Prof. Ricardo Mendes', notes: 'Geometria Espacial' },
+  'sexta-6': { subject: 'Educação Financeira', teacher: 'Prof. Ricardo Mendes', notes: 'Juros Compostos e Investimentos' },
+  'sexta-7': { subject: 'Iniciação Científica', teacher: 'Profa. Vanessa Torres', notes: 'Elaboração de Artigos e Projetos' },
+  'sexta-8': { subject: 'Atividades Culturais', teacher: 'Coordenação Pedagógica', notes: 'Roda de Debates da 2ª Série' },
+};
+
+const THIRD_SERIES_SUBJECT_ROTATION: Record<string, { subject: string; teacher: string; notes: string }> = {
+  'segunda-1': { subject: 'Matemática', teacher: 'Prof. Ricardo Mendes', notes: 'Revisão ENEM: Funções e Estatística' },
+  'segunda-2': { subject: 'Redação', teacher: 'Profa. Juliana Castro', notes: 'Redação Nota 1000 — Estrutura ENEM' },
+  'segunda-3': { subject: 'Física', teacher: 'Prof. André Santos', notes: 'Eletrodinâmica e Circuitos Elétricos' },
+  'segunda-4': { subject: 'Química', teacher: 'Prof. Felipe Albuquerque', notes: 'Química Orgânica e Polímeros' },
+  'segunda-5': { subject: 'Biologia', teacher: 'Profa. Vanessa Torres', notes: 'Genética Molecular e Biotecnologia' },
+  'segunda-6': { subject: 'História', teacher: 'Prof. Carlos Eduardo', notes: 'História Contemporânea e Guerra Fria' },
+  'segunda-7': { subject: 'Geografia', teacher: 'Profa. Mariana Lima', notes: 'Geopolítica Global e Blocos Econômicos' },
+  'segunda-8': { subject: 'Estudos Orientados', teacher: 'Coordenação Pedagógica', notes: 'Simulado Focado ENEM & Vestibulares' },
+
+  'terca-1': { subject: 'Português', teacher: 'Profa. Juliana Castro', notes: 'Interpretação Avançada de Textos' },
+  'terca-2': { subject: 'Literatura', teacher: 'Profa. Juliana Castro', notes: 'Modernismo e Literatura Contemporânea' },
+  'terca-3': { subject: 'Matemática', teacher: 'Prof. Ricardo Mendes', notes: 'Geometria Analítica e Probabilidades' },
+  'terca-4': { subject: 'Matemática', teacher: 'Prof. Ricardo Mendes', notes: 'Resolução de Questões ENEM' },
+  'terca-5': { subject: 'Filosofia', teacher: 'Prof. Olavo Medeiros', notes: 'Filosofia Contemporânea e Ética' },
+  'terca-6': { subject: 'Sociologia', teacher: 'Profa. Amanda Rocha', notes: 'Movimentos Sociais e Cidadania' },
+  'terca-7': { subject: 'Inglês', teacher: 'Profa. Beatrice King', notes: 'Estratégias de Leitura para Vestibulares' },
+  'terca-8': { subject: 'Projeto de Vida', teacher: 'Prof. Olavo Medeiros', notes: 'Orientação Profissional e SISU/PROUNI' },
+
+  'quarta-1': { subject: 'Química', teacher: 'Prof. Felipe Albuquerque', notes: 'Reações Orgânicas e Isomeria' },
+  'quarta-2': { subject: 'Biologia', teacher: 'Profa. Vanessa Torres', notes: 'Evolução e Ecologia Aplicada' },
+  'quarta-3': { subject: 'Física', teacher: 'Prof. André Santos', notes: 'Eletromagnetismo e Física Moderna' },
+  'quarta-4': { subject: 'Português', teacher: 'Profa. Juliana Castro', notes: 'Variação Linguística e Funções da Linguagem' },
+  'quarta-5': { subject: 'Educação Física', teacher: 'Prof. Marcos Rogério', notes: 'Saúde, Qualidade de Vida e Esportes' },
+  'quarta-6': { subject: 'História', teacher: 'Prof. Carlos Eduardo', notes: 'Brasil Contemporâneo e Redemocratização' },
+  'quarta-7': { subject: 'Espanhol', teacher: 'Profa. Beatrice King', notes: 'Interpretação Avançada ENEM' },
+  'quarta-8': { subject: 'Artes', teacher: 'Profa. Cecília Meireles', notes: 'Vanguardas Europeias e Arte Contemporânea' },
+
+  'quinta-1': { subject: 'Redação', teacher: 'Profa. Juliana Castro', notes: 'Correção Comentada e Repertório' },
+  'quinta-2': { subject: 'Matemática', teacher: 'Prof. Ricardo Mendes', notes: 'Grandezas Proporcionais e Escalas' },
+  'quinta-3': { subject: 'Geografia', teacher: 'Profa. Mariana Lima', notes: 'Questões Ambientais e Clima' },
+  'quinta-4': { subject: 'Física', teacher: 'Prof. André Santos', notes: 'Revisão Geral: Mecânica e Energia' },
+  'quinta-5': { subject: 'Química', teacher: 'Prof. Felipe Albuquerque', notes: 'Estequiometria e Soluções ENEM' },
+  'quinta-6': { subject: 'Biologia', teacher: 'Profa. Vanessa Torres', notes: 'Imunologia e Saúde Pública' },
+  'quinta-7': { subject: 'Ciências', teacher: 'Prof. Thiago Moura', notes: 'Tecnologia, IA e Inovação Científica' },
+  'quinta-8': { subject: 'Literatura', teacher: 'Profa. Juliana Castro', notes: 'Seminário de Obras Clássicas' },
+
+  'sexta-1': { subject: 'História', teacher: 'Prof. Carlos Eduardo', notes: 'Revisão Temática para Vestibulares' },
+  'sexta-2': { subject: 'Geografia', teacher: 'Profa. Mariana Lima', notes: 'Atualidades e Geografia do Piauí' },
+  'sexta-3': { subject: 'Português', teacher: 'Profa. Juliana Castro', notes: 'Análise de Provas Anteriores' },
+  'sexta-4': { subject: 'Matemática', teacher: 'Prof. Ricardo Mendes', notes: 'Maratona de Exercícios' },
+  'sexta-5': { subject: 'Biologia', teacher: 'Profa. Vanessa Torres', notes: 'Citologia e Metabolismo Energético' },
+  'sexta-6': { subject: 'Educação Financeira', teacher: 'Prof. Ricardo Mendes', notes: 'Orçamento Universitário e Planejamento' },
+  'sexta-7': { subject: 'Iniciação Científica', teacher: 'Profa. Vanessa Torres', notes: 'Apresentação de TCC Escolar' },
+  'sexta-8': { subject: 'Atividades Culturais', teacher: 'Coordenação Pedagógica', notes: 'Aulão Integrado da 3ª Série' },
+};
+
+export const DEFAULT_SCHEDULE: ClassPeriod[] = [
+  ...FIRST_SERIES_BASE_SCHEDULE.map((p) => ({ ...p, gradeSeries: '1_serie' as GradeSeries })),
+  ...FIRST_SERIES_BASE_SCHEDULE.map((p) => {
+    const key = `${p.dayOfWeek}-${p.periodNumber}`;
+    const custom = SECOND_SERIES_SUBJECT_ROTATION[key];
+    return {
+      ...p,
+      id: p.id.replace('sch-', 'sch-2s-'),
+      gradeSeries: '2_serie' as GradeSeries,
+      room: p.room === 'Sala 102' ? 'Sala 201' : p.room,
+      subject: custom?.subject || p.subject,
+      teacher: custom?.teacher || p.teacher,
+      notes: custom?.notes || p.notes,
+    };
+  }),
+  ...FIRST_SERIES_BASE_SCHEDULE.map((p) => {
+    const key = `${p.dayOfWeek}-${p.periodNumber}`;
+    const custom = THIRD_SERIES_SUBJECT_ROTATION[key];
+    return {
+      ...p,
+      id: p.id.replace('sch-', 'sch-3s-'),
+      gradeSeries: '3_serie' as GradeSeries,
+      room: p.room === 'Sala 102' ? 'Sala 301' : p.room,
+      subject: custom?.subject || p.subject,
+      teacher: custom?.teacher || p.teacher,
+      notes: custom?.notes || p.notes,
+    };
+  }),
 ];
 
 export const COMMON_SUBJECTS = [
@@ -1560,60 +1466,68 @@ export function sanitizeSchedule(rawList: ClassPeriod[]): ClassPeriod[] {
     return [];
   }
 
+  const seriesOrder: GradeSeries[] = ['1_serie', '2_serie', '3_serie'];
   const days: DayOfWeek[] = ['segunda', 'terca', 'quarta', 'quinta', 'sexta'];
   const sanitized: ClassPeriod[] = [];
   const maxSlots = CLASS_PERIOD_SLOTS.length;
 
-  for (const day of days) {
-    const dayClasses = rawList.filter((p) => p && p.dayOfWeek === day);
-    if (dayClasses.length === 0) continue;
+  for (const series of seriesOrder) {
+    const seriesPrefix = series === '1_serie' ? 'sch' : series === '2_serie' ? 'sch-2s' : 'sch-3s';
 
-    const sorted = [...dayClasses].sort((a, b) => {
-      if ((a.periodNumber || 0) !== (b.periodNumber || 0)) {
-        return (a.periodNumber || 1) - (b.periodNumber || 1);
-      }
-      return (a.startTime || '').localeCompare(b.startTime || '');
-    });
+    for (const day of days) {
+      const dayClasses = rawList.filter(
+        (p) => p && p.dayOfWeek === day && (p.gradeSeries || '1_serie') === series
+      );
+      if (dayClasses.length === 0) continue;
 
-    const usedPeriods = new Set<number>();
-    const dayResult: ClassPeriod[] = [];
-
-    for (const item of sorted) {
-      let targetPeriod = item.periodNumber || 0;
-
-      if (!targetPeriod || targetPeriod < 1 || targetPeriod > maxSlots) {
-        const slotByStartTime = CLASS_PERIOD_SLOTS.find((s) => s.startTime === item.startTime);
-        targetPeriod = slotByStartTime ? slotByStartTime.periodNumber : 1;
-      }
-
-      if (usedPeriods.has(targetPeriod)) {
-        let nextFree = 1;
-        while (nextFree <= maxSlots && usedPeriods.has(nextFree)) {
-          nextFree++;
+      const sorted = [...dayClasses].sort((a, b) => {
+        if ((a.periodNumber || 0) !== (b.periodNumber || 0)) {
+          return (a.periodNumber || 1) - (b.periodNumber || 1);
         }
-        if (nextFree <= maxSlots) {
-          targetPeriod = nextFree;
-        } else {
-          continue;
-        }
-      }
-
-      usedPeriods.add(targetPeriod);
-      const slot = CLASS_PERIOD_SLOTS.find((s) => s.periodNumber === targetPeriod);
-
-      dayResult.push({
-        ...item,
-        id: item.id || `sch-${day}-${targetPeriod}`,
-        dayOfWeek: day,
-        periodNumber: targetPeriod,
-        startTime: (item.startTime || '').trim() || slot?.startTime || '07:30',
-        endTime: (item.endTime || '').trim() || slot?.endTime || '08:20',
-        subject: (item.subject || '').trim() || 'Aula',
+        return (a.startTime || '').localeCompare(b.startTime || '');
       });
-    }
 
-    dayResult.sort((a, b) => a.periodNumber - b.periodNumber);
-    sanitized.push(...dayResult);
+      const usedPeriods = new Set<number>();
+      const dayResult: ClassPeriod[] = [];
+
+      for (const item of sorted) {
+        let targetPeriod = item.periodNumber || 0;
+
+        if (!targetPeriod || targetPeriod < 1 || targetPeriod > maxSlots) {
+          const slotByStartTime = CLASS_PERIOD_SLOTS.find((s) => s.startTime === item.startTime);
+          targetPeriod = slotByStartTime ? slotByStartTime.periodNumber : 1;
+        }
+
+        if (usedPeriods.has(targetPeriod)) {
+          let nextFree = 1;
+          while (nextFree <= maxSlots && usedPeriods.has(nextFree)) {
+            nextFree++;
+          }
+          if (nextFree <= maxSlots) {
+            targetPeriod = nextFree;
+          } else {
+            continue;
+          }
+        }
+
+        usedPeriods.add(targetPeriod);
+        const slot = CLASS_PERIOD_SLOTS.find((s) => s.periodNumber === targetPeriod);
+
+        dayResult.push({
+          ...item,
+          id: item.id || `${seriesPrefix}-${day.slice(0, 3)}-${targetPeriod}`,
+          gradeSeries: series,
+          dayOfWeek: day,
+          periodNumber: targetPeriod,
+          startTime: (item.startTime || '').trim() || slot?.startTime || '07:30',
+          endTime: (item.endTime || '').trim() || slot?.endTime || '08:20',
+          subject: (item.subject || '').trim() || 'Aula',
+        });
+      }
+
+      dayResult.sort((a, b) => a.periodNumber - b.periodNumber);
+      sanitized.push(...dayResult);
+    }
   }
 
   return sanitized;

@@ -17,6 +17,7 @@ import {
   ThemeMode,
   SchoolMeal,
   ClassPeriod,
+  GradeSeries,
 } from './types';
 import {
   DEFAULT_TASKS,
@@ -27,6 +28,8 @@ import {
   saveStoredRole,
   getStoredTheme,
   saveStoredTheme,
+  getStoredGradeSeries,
+  saveStoredGradeSeries,
   getCompletedTaskIds,
   saveCompletedTaskIds,
   runStorageMigrations,
@@ -41,6 +44,7 @@ import {
   createEventInFirestore,
   updateEventInFirestore,
   deleteEventInFirestore,
+  deleteAllEventsInFirestore,
   createTaskInFirestore,
   deleteTaskInFirestore,
   saveClassPeriodInFirestore,
@@ -50,6 +54,7 @@ import {
   resetScheduleInFirestore,
   resetMealsInFirestore,
   resetAllDefaultsInFirestore,
+  LEGACY_EVENTS_CUTOFF_MS,
 } from './firebase';
 import { Header } from './components/Header';
 import { StatsBanner } from './components/StatsBanner';
@@ -85,6 +90,7 @@ export default function App() {
   const [completedTaskIds, setCompletedTaskIds] = useState<string[]>(() => getCompletedTaskIds());
   const [userRole, setUserRole] = useState<UserRole>(getStoredRole);
   const [theme, setTheme] = useState<ThemeMode>(getStoredTheme);
+  const [selectedSeries, setSelectedSeries] = useState<GradeSeries>(getStoredGradeSeries);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [isCloudAdmin, setIsCloudAdmin] = useState(false);
 
@@ -116,11 +122,13 @@ export default function App() {
     runStorageMigrations();
     setUserRole(getStoredRole());
     setTheme(getStoredTheme());
+    setSelectedSeries(getStoredGradeSeries());
     setCompletedTaskIds(getCompletedTaskIds());
 
     const handleStorageSync = () => {
       setUserRole(getStoredRole());
       setTheme(getStoredTheme());
+      setSelectedSeries(getStoredGradeSeries());
       setCompletedTaskIds(getCompletedTaskIds());
     };
     window.addEventListener('storage', handleStorageSync);
@@ -189,12 +197,18 @@ export default function App() {
 
   const events = useMemo(() => {
     if (!dbInitialized && eventsEmpty) return DEFAULT_EVENTS;
-    return rawEvents;
+    return rawEvents.filter((ev) => !ev.createdAt || ev.createdAt > LEGACY_EVENTS_CUTOFF_MS);
   }, [dbInitialized, eventsEmpty, rawEvents]);
 
   const schedule = useMemo(() => {
     if (scheduleEmpty) return DEFAULT_SCHEDULE;
-    return rawSchedule;
+    const presentSeries = new Set<GradeSeries>(
+      rawSchedule.map((p) => p.gradeSeries || '1_serie')
+    );
+    const missingDefaults = DEFAULT_SCHEDULE.filter(
+      (p) => !presentSeries.has(p.gradeSeries || '1_serie')
+    );
+    return missingDefaults.length > 0 ? [...rawSchedule, ...missingDefaults] : rawSchedule;
   }, [scheduleEmpty, rawSchedule]);
 
   const meals = useMemo(() => {
@@ -234,6 +248,11 @@ export default function App() {
     } else if (activeTab === 'coordenacao') {
       setActiveTab('eventos');
     }
+  };
+
+  const handleSeriesChange = (series: GradeSeries) => {
+    setSelectedSeries(series);
+    saveStoredGradeSeries(series);
   };
 
   const requireCloudAdmin = (): User | null => {
@@ -370,6 +389,18 @@ export default function App() {
     }
   };
 
+  const handleDeleteAllEvents = async () => {
+    const adminUser = requireCloudAdmin();
+    if (!adminUser) return;
+
+    try {
+      await deleteAllEventsInFirestore();
+      showToast('Todos os eventos e provas foram removidos para todos!');
+    } catch (err) {
+      setFatalError(err instanceof Error ? err : new Error(String(err)));
+    }
+  };
+
   const handleResetToDefaults = async () => {
     const adminUser = requireCloudAdmin();
     if (!adminUser) return;
@@ -409,10 +440,12 @@ export default function App() {
     const adminUser = requireCloudAdmin();
     if (!adminUser) return;
 
+    const targetSeries = updatedPeriod.gradeSeries || '1_serie';
     const conflictingIds = schedule
       .filter(
         (p) =>
           p.id !== updatedPeriod.id &&
+          (p.gradeSeries || '1_serie') === targetSeries &&
           p.dayOfWeek === updatedPeriod.dayOfWeek &&
           p.periodNumber === updatedPeriod.periodNumber
       )
@@ -436,12 +469,12 @@ export default function App() {
     }
   };
 
-  const handleResetSchedule = async () => {
+  const handleResetSchedule = async (targetSeries?: GradeSeries) => {
     const adminUser = requireCloudAdmin();
     if (!adminUser) return;
 
     try {
-      await resetScheduleInFirestore(adminUser.uid);
+      await resetScheduleInFirestore(adminUser.uid, targetSeries);
     } catch (err) {
       setFatalError(err instanceof Error ? err : new Error(String(err)));
     }
@@ -629,6 +662,7 @@ export default function App() {
               onAddEvent={handleAddEvent}
               onUpdateEvent={handleUpdateEvent}
               onDeleteEvent={handleDeleteEvent}
+              onDeleteAllEvents={handleDeleteAllEvents}
               onResetDefaultEvents={handleResetToDefaults}
               onOpenAuthModal={() => setIsAuthModalOpen(true)}
             />
@@ -652,6 +686,8 @@ export default function App() {
             <ClassScheduleView
               schedule={schedule}
               userRole={userRole}
+              selectedSeries={selectedSeries}
+              onSeriesChange={handleSeriesChange}
               onUpdatePeriod={handleUpdatePeriod}
               onDeletePeriod={handleDeletePeriod}
               onResetSchedule={handleResetSchedule}
@@ -693,6 +729,7 @@ export default function App() {
               onAddEvent={handleAddEvent}
               onUpdateEvent={handleUpdateEvent}
               onDeleteEvent={handleDeleteEvent}
+              onDeleteAllEvents={handleDeleteAllEvents}
               onResetDefaultEvents={handleResetToDefaults}
               onSwitchToStudent={() => handleRoleChange('aluno')}
             />

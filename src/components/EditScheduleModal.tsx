@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Clock, BookOpen, User, MapPin, FileText, Check, Trash2, Sparkles, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ClassPeriod, DayOfWeek } from '../types';
+import { ClassPeriod, DayOfWeek, GradeSeries } from '../types';
 import {
   DAYS_OF_WEEK,
   COMMON_SUBJECTS,
   CLASS_PERIOD_SLOTS,
+  GRADE_SERIES_OPTIONS,
   getSubjectColor,
 } from '../utils/storage';
 
@@ -13,40 +14,62 @@ interface EditScheduleModalProps {
   isOpen: boolean;
   period: ClassPeriod | null;
   initialDay?: DayOfWeek;
+  initialSeries?: GradeSeries;
   schedule?: ClassPeriod[];
   onClose: () => void;
   onSave: (period: ClassPeriod) => void;
   onDelete?: (periodId: string) => void;
 }
 
-export const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
+export const EditScheduleModal = ({
   isOpen,
   period,
   initialDay = 'segunda',
+  initialSeries = '1_serie',
   schedule = [],
   onClose,
   onSave,
   onDelete,
-}) => {
+}: EditScheduleModalProps) => {
+  const [gradeSeries, setGradeSeries] = useState<GradeSeries>(initialSeries);
   const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(initialDay);
   const [periodNumber, setPeriodNumber] = useState<number>(1);
   const [startTime, setStartTime] = useState<string>('07:30');
   const [endTime, setEndTime] = useState<string>('08:20');
   const [subject, setSubject] = useState<string>('Matemática');
   const [teacher, setTeacher] = useState<string>('');
-  const [room, setRoom] = useState<string>('');
+  const [room, setRoom] = useState<string>('Sala 102');
   const [notes, setNotes] = useState<string>('');
   const [customTimeMode, setCustomTimeMode] = useState<boolean>(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState<boolean>(false);
+
+  const findFreeSlotForSeriesAndDay = (targetSeries: GradeSeries, targetDay: DayOfWeek) => {
+    const existingForDay = schedule.filter(
+      (p) => (p.gradeSeries || '1_serie') === targetSeries && p.dayOfWeek === targetDay
+    );
+    const usedPeriods = new Set(existingForDay.map((p) => p.periodNumber));
+    let freeSlot = 1;
+    while (freeSlot <= CLASS_PERIOD_SLOTS.length && usedPeriods.has(freeSlot)) {
+      freeSlot++;
+    }
+    const targetSlotNum = freeSlot <= CLASS_PERIOD_SLOTS.length ? freeSlot : 1;
+    return CLASS_PERIOD_SLOTS.find((s) => s.periodNumber === targetSlotNum) || CLASS_PERIOD_SLOTS[0];
+  };
 
   useEffect(() => {
+    setIsConfirmingDelete(false);
     if (period) {
+      const resolvedSeries = period.gradeSeries || initialSeries || '1_serie';
+      const defaultRoomForSeries =
+        GRADE_SERIES_OPTIONS.find((s) => s.id === resolvedSeries)?.roomLabel || 'Sala 102';
+      setGradeSeries(resolvedSeries);
       setDayOfWeek(period.dayOfWeek);
       setPeriodNumber(period.periodNumber || 1);
       setStartTime(period.startTime || '07:30');
       setEndTime(period.endTime || '08:20');
       setSubject(period.subject || 'Matemática');
       setTeacher(period.teacher || '');
-      setRoom(period.room || '');
+      setRoom(period.room || defaultRoomForSeries);
       setNotes(period.notes || '');
 
       // Check if matches standard slot
@@ -55,40 +78,44 @@ export const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
       );
       setCustomTimeMode(!matchedSlot);
     } else {
-      // Quando criando nova aula, busca o primeiro período livre daquele dia
-      const existingForDay = schedule.filter((p) => p.dayOfWeek === initialDay);
-      const usedPeriods = new Set(existingForDay.map((p) => p.periodNumber));
-      let freeSlot = 1;
-      while (freeSlot <= CLASS_PERIOD_SLOTS.length && usedPeriods.has(freeSlot)) {
-        freeSlot++;
-      }
-      const targetSlotNum = freeSlot <= CLASS_PERIOD_SLOTS.length ? freeSlot : 1;
-      const defaultSlot = CLASS_PERIOD_SLOTS.find((s) => s.periodNumber === targetSlotNum) || CLASS_PERIOD_SLOTS[0];
+      const defaultSlot = findFreeSlotForSeriesAndDay(initialSeries, initialDay);
+      const defaultRoomForSeries =
+        GRADE_SERIES_OPTIONS.find((s) => s.id === initialSeries)?.roomLabel || 'Sala 102';
 
+      setGradeSeries(initialSeries);
       setDayOfWeek(initialDay);
       setPeriodNumber(defaultSlot.periodNumber);
       setStartTime(defaultSlot.startTime);
       setEndTime(defaultSlot.endTime);
       setSubject('Matemática');
       setTeacher('');
-      setRoom('Sala 102');
+      setRoom(defaultRoomForSeries);
       setNotes('');
       setCustomTimeMode(false);
     }
-  }, [period, initialDay, isOpen, schedule]);
+  }, [period, initialDay, initialSeries, isOpen, schedule]);
+
+  // Se trocar a série ao adicionar nova aula, ajusta sala padrão e sugere período livre
+  const handleSeriesChange = (newSeries: GradeSeries) => {
+    setGradeSeries(newSeries);
+    if (!period || !period.id) {
+      const isDefaultRoom = GRADE_SERIES_OPTIONS.some((opt) => opt.roomLabel === room) || !room.trim();
+      if (isDefaultRoom) {
+        const nextRoom = GRADE_SERIES_OPTIONS.find((opt) => opt.id === newSeries)?.roomLabel || 'Sala 102';
+        setRoom(nextRoom);
+      }
+      const defaultSlot = findFreeSlotForSeriesAndDay(newSeries, dayOfWeek);
+      setPeriodNumber(defaultSlot.periodNumber);
+      setStartTime(defaultSlot.startTime);
+      setEndTime(defaultSlot.endTime);
+    }
+  };
 
   // Se trocar o dia ao adicionar nova aula, sugere período livre
   const handleDayChange = (newDay: DayOfWeek) => {
     setDayOfWeek(newDay);
-    if (!period) {
-      const existingForDay = schedule.filter((p) => p.dayOfWeek === newDay);
-      const usedPeriods = new Set(existingForDay.map((p) => p.periodNumber));
-      let freeSlot = 1;
-      while (freeSlot <= CLASS_PERIOD_SLOTS.length && usedPeriods.has(freeSlot)) {
-        freeSlot++;
-      }
-      const targetSlotNum = freeSlot <= CLASS_PERIOD_SLOTS.length ? freeSlot : 1;
-      const defaultSlot = CLASS_PERIOD_SLOTS.find((s) => s.periodNumber === targetSlotNum) || CLASS_PERIOD_SLOTS[0];
+    if (!period || !period.id) {
+      const defaultSlot = findFreeSlotForSeriesAndDay(gradeSeries, newDay);
       setPeriodNumber(defaultSlot.periodNumber);
       setStartTime(defaultSlot.startTime);
       setEndTime(defaultSlot.endTime);
@@ -105,16 +132,17 @@ export const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
     }
   };
 
-  // Detecta se já existe outra aula ocupando o período selecionado
+  // Detecta se já existe outra aula ocupando o período selecionado na mesma série
   const conflictClass = useMemo(() => {
     if (!schedule || schedule.length === 0) return null;
     return schedule.find(
       (p) =>
+        (p.gradeSeries || '1_serie') === gradeSeries &&
         p.dayOfWeek === dayOfWeek &&
         p.periodNumber === periodNumber &&
         p.id !== (period?.id || '')
     );
-  }, [schedule, dayOfWeek, periodNumber, period]);
+  }, [schedule, gradeSeries, dayOfWeek, periodNumber, period]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,8 +156,15 @@ export const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
       }
     }
 
+    const seriesPrefix =
+      gradeSeries === '1_serie' ? 'sch-1s' : gradeSeries === '2_serie' ? 'sch-2s' : 'sch-3s';
+
     const updatedPeriod: ClassPeriod = {
-      id: period ? period.id : `sch-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id:
+        period && period.id
+          ? period.id
+          : `${seriesPrefix}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      gradeSeries,
       dayOfWeek,
       periodNumber: finalPeriodNumber,
       startTime,
@@ -182,6 +217,32 @@ export const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
           </div>
 
           <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
+            {/* Grade Series Selection */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+                Série
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {GRADE_SERIES_OPTIONS.map((opt) => {
+                  const isSelected = gradeSeries === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleSeriesChange(opt.id)}
+                      className={`py-2 px-2 text-center rounded-xl text-xs font-bold transition cursor-pointer ${
+                        isSelected
+                          ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Day of the Week Selection */}
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
@@ -367,20 +428,40 @@ export const EditScheduleModal: React.FC<EditScheduleModalProps> = ({
 
             {/* Action Buttons */}
             <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-              {period && onDelete ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm('Tem certeza de que deseja remover esta aula do horário?')) {
-                      onDelete(period.id);
-                      onClose();
-                    }
-                  }}
-                  className="px-3.5 py-2.5 rounded-2xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 flex items-center gap-1.5 transition cursor-pointer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Excluir
-                </button>
+              {period && period.id && onDelete ? (
+                isConfirmingDelete ? (
+                  <div className="flex items-center gap-1.5 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 px-2.5 py-1.5 rounded-xl">
+                    <span className="text-[11px] font-bold text-rose-700 dark:text-rose-300">
+                      Excluir?
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onDelete(period.id);
+                        onClose();
+                      }}
+                      className="px-2 py-0.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold cursor-pointer"
+                    >
+                      Sim
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsConfirmingDelete(false)}
+                      className="px-2 py-0.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold cursor-pointer"
+                    >
+                      Não
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmingDelete(true)}
+                    className="px-3.5 py-2.5 rounded-2xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Excluir
+                  </button>
+                )
               ) : (
                 <div />
               )}

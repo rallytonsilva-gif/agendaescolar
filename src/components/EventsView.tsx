@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Info,
   Cloud,
+  Trash2,
 } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
 import { SchoolEvent, EventCategory, UserRole } from '../types';
@@ -34,6 +35,7 @@ interface EventsViewProps {
   ) => void;
   onUpdateEvent?: (updated: SchoolEvent) => void;
   onDeleteEvent: (id: string) => void;
+  onDeleteAllEvents?: () => void;
   onResetDefaultEvents: () => void;
   onOpenAuthModal: () => void;
 }
@@ -45,12 +47,14 @@ export const EventsView: React.FC<EventsViewProps> = ({
   onAddEvent,
   onUpdateEvent,
   onDeleteEvent,
+  onDeleteAllEvents,
   onResetDefaultEvents,
   onOpenAuthModal,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
   const [editingEvent, setEditingEvent] = useState<SchoolEvent | null>(null);
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false);
 
   const isCoordinator = userRole === 'coordenador';
 
@@ -171,6 +175,42 @@ export const EventsView: React.FC<EventsViewProps> = ({
               id="search-events-input"
             />
           </div>
+
+          {isCoordinator && onDeleteAllEvents && events.length > 0 && (
+            confirmDeleteAll ? (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmDeleteAll(false);
+                    onDeleteAllEvents();
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  id="confirm-delete-all-events-btn"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Confirmar Exclusão
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteAll(false)}
+                  className="px-2.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-semibold cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteAll(true)}
+                className="px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+                id="delete-all-events-btn"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Excluir Todos
+              </button>
+            )
+          )}
         </div>
 
         {/* Category Filter Pills */}

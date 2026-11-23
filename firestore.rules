@@ -70,8 +70,9 @@ service cloud.firestore {
 
     function isValidClassPeriod(data) {
       return data.keys().hasAll(['id', 'dayOfWeek', 'periodNumber', 'startTime', 'endTime', 'subject', 'authorUid', 'updatedAt'])
-        && data.keys().hasOnly(['id', 'dayOfWeek', 'periodNumber', 'startTime', 'endTime', 'subject', 'teacher', 'room', 'notes', 'authorUid', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'gradeSeries', 'dayOfWeek', 'periodNumber', 'startTime', 'endTime', 'subject', 'teacher', 'room', 'notes', 'authorUid', 'updatedAt'])
         && isValidId(data.id)
+        && (!('gradeSeries' in data) || data.gradeSeries in ['1_serie', '2_serie', '3_serie'])
         && data.dayOfWeek in ['segunda', 'terca', 'quarta', 'quinta', 'sexta']
         && data.periodNumber is number && data.periodNumber >= 1 && data.periodNumber <= 8
         && data.startTime is string && data.startTime.size() >= 4 && data.startTime.size() <= 10
@@ -164,7 +165,7 @@ service cloud.firestore {
         && incoming().id == existing().id
         && incoming().authorUid == request.auth.uid
         && incoming().updatedAt == request.time
-        && incoming().diff(existing()).affectedKeys().hasOnly(['dayOfWeek', 'periodNumber', 'startTime', 'endTime', 'subject', 'teacher', 'room', 'notes', 'authorUid', 'updatedAt']);
+        && incoming().diff(existing()).affectedKeys().hasOnly(['gradeSeries', 'dayOfWeek', 'periodNumber', 'startTime', 'endTime', 'subject', 'teacher', 'room', 'notes', 'authorUid', 'updatedAt']);
       allow delete: if isAdmin() && isValidId(periodId);
     }
 

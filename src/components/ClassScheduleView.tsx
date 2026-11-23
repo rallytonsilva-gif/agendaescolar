@@ -26,10 +26,12 @@ import {
   GraduationCap,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ClassPeriod, DayOfWeek, UserRole } from '../types';
+import { ClassPeriod, DayOfWeek, GradeSeries, UserRole } from '../types';
 import {
   DAYS_OF_WEEK,
   CLASS_PERIOD_SLOTS,
+  GRADE_SERIES_OPTIONS,
+  getGradeSeriesLabel,
   getCurrentDayOfWeek,
   getBrasiliaNowParts,
   getSubjectColor,
@@ -42,9 +44,11 @@ import { EditScheduleModal } from './EditScheduleModal';
 interface ClassScheduleViewProps {
   schedule: ClassPeriod[];
   userRole: UserRole;
+  selectedSeries?: GradeSeries;
+  onSeriesChange?: (series: GradeSeries) => void;
   onUpdatePeriod: (period: ClassPeriod) => void;
   onDeletePeriod: (periodId: string) => void;
-  onResetSchedule: () => void;
+  onResetSchedule: (series?: GradeSeries) => void;
   onQuickCreateTaskForSubject?: (subject: string) => void;
   onNavigateToGames?: () => void;
   onOpenAuthModal?: () => void;
@@ -54,6 +58,8 @@ interface ClassScheduleViewProps {
 export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
   schedule,
   userRole,
+  selectedSeries,
+  onSeriesChange,
   onUpdatePeriod,
   onDeletePeriod,
   onResetSchedule,
@@ -63,13 +69,29 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
   onSuccessToast,
 }) => {
   const currentWeekday = useMemo(() => getCurrentDayOfWeek(), []);
+  const [internalSeries, setInternalSeries] = useState<GradeSeries>('1_serie');
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(currentWeekday);
   const [viewMode, setViewMode] = useState<'dia' | 'grade'>('dia');
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>('todos');
   const [editingPeriod, setEditingPeriod] = useState<ClassPeriod | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [copiedSuccess, setCopiedSuccess] = useState<boolean>(false);
+  const [isConfirmingReset, setIsConfirmingReset] = useState<boolean>(false);
   const [currentTimeStr, setCurrentTimeStr] = useState<string>('');
+
+  const activeSeries = selectedSeries ?? internalSeries;
+  const activeSeriesLabel = useMemo(() => getGradeSeriesLabel(activeSeries), [activeSeries]);
+  const activeSeriesOption = useMemo(
+    () => GRADE_SERIES_OPTIONS.find((s) => s.id === activeSeries) || GRADE_SERIES_OPTIONS[0],
+    [activeSeries]
+  );
+
+  const handleSelectSeries = (series: GradeSeries) => {
+    setInternalSeries(series);
+    onSeriesChange?.(series);
+    setSelectedSubjectFilter('todos');
+    setIsConfirmingReset(false);
+  };
 
   // Track live Horário de Brasília
   useEffect(() => {
@@ -90,10 +112,14 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
     return currentTimeStr >= period.startTime && currentTimeStr <= period.endTime;
   };
 
-  // Garante que o cronograma sempre esteja sanitizado (sem duplicatas de 1º horário)
-  const safeSchedule = useMemo(() => {
+  // Garante que o cronograma sempre esteja sanitizado (sem duplicatas por série e dia)
+  const allSafeSchedule = useMemo(() => {
     return sanitizeSchedule(schedule);
   }, [schedule]);
+
+  const safeSchedule = useMemo(() => {
+    return allSafeSchedule.filter((p) => (p.gradeSeries || '1_serie') === activeSeries);
+  }, [allSafeSchedule, activeSeries]);
 
   // Check which class is active right now or next upcoming
   const currentLiveClass = useMemo(() => {
@@ -132,12 +158,12 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
       .sort((a, b) => a.periodNumber - b.periodNumber);
 
     if (dayClasses.length === 0) {
-      onSuccessToast('Nenhuma aula cadastrada para este dia.');
+      onSuccessToast(`Nenhuma aula cadastrada para ${activeSeriesLabel} neste dia.`);
       return;
     }
 
     const lines = [
-      `📚 *Horário de Aulas - ${selectedDayInfo.name}*`,
+      `📚 *Horário de Aulas - ${activeSeriesLabel} - ${selectedDayInfo.name}*`,
       `━━━━━━━━━━━━━━━━━━━━`,
       ...dayClasses.map((p) => {
         const teacherPart = p.teacher ? ` (${p.teacher})` : '';
@@ -150,15 +176,14 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
 
     navigator.clipboard.writeText(lines.join('\n'));
     setCopiedSuccess(true);
-    onSuccessToast('Horário do dia copiado para a área de transferência!');
+    onSuccessToast(`Horário da ${activeSeriesLabel} copiado para a área de transferência!`);
     setTimeout(() => setCopiedSuccess(false), 3000);
   };
 
   const handleResetConfirm = () => {
-    if (window.confirm('Tem certeza de que deseja restaurar a grade de horários padrão da semana?')) {
-      onResetSchedule();
-      onSuccessToast('Horário padrão restaurado!');
-    }
+    onResetSchedule(activeSeries);
+    setIsConfirmingReset(false);
+    onSuccessToast(`Horário padrão da ${activeSeriesLabel} restaurado!`);
   };
 
   return (
@@ -208,7 +233,7 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase">
               <Clock className="w-3.5 h-3.5 text-emerald-100" />
-              <span>Grade Curricular Semanal</span>
+              <span>{activeSeriesLabel} · Grade Semanal</span>
             </div>
 
             {currentLiveClass ? (
@@ -227,10 +252,10 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-display text-white mb-2">
-            Horários das Matérias da Semana
+            Horários das Matérias — {activeSeriesLabel}
           </h2>
           <p className="text-sm text-emerald-50/90 max-w-xl leading-relaxed mb-5">
-            Acompanhe o cronograma de aulas diário, professores responsáveis, salas de aula e organize suas tarefas para cada matéria.
+            Selecione sua série abaixo para acompanhar o cronograma de aulas diário, professores responsáveis e salas de aula.
           </p>
 
           {/* Quick Metrics Bar & Action Buttons */}
@@ -289,8 +314,51 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
         </div>
       </div>
 
-      {/* Control Bar: Day Selection & View Modes */}
+      {/* Control Bar: Series Selector, Day Selection & View Modes */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-4">
+        {/* Grade Series Selector (1ª Série / 2ª Série / 3ª Série) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100 dark:border-slate-800/80">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 flex items-center justify-center border border-emerald-100 dark:border-emerald-800/60 shrink-0">
+              <GraduationCap className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                Escolha a Série
+              </span>
+              <span className="block text-[11px] text-slate-500 dark:text-slate-400">
+                Exibindo grade da <strong>{activeSeriesLabel}</strong> ({activeSeriesOption.roomLabel})
+              </span>
+            </div>
+          </div>
+
+          <div
+            className="grid grid-cols-3 gap-1.5 sm:gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/70"
+            role="tablist"
+            aria-label="Selecionar Série"
+          >
+            {GRADE_SERIES_OPTIONS.map((opt) => {
+              const isSelected = activeSeries === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isSelected}
+                  onClick={() => handleSelectSeries(opt.id)}
+                  className={`px-3.5 sm:px-5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+                    isSelected
+                      ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/25'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-slate-700/60'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Top switch row */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -321,14 +389,14 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
           </div>
 
           {isCoordinator && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
-                  const cleaned = sanitizeSchedule(schedule);
+                  const cleaned = sanitizeSchedule(safeSchedule);
                   let changed = 0;
                   cleaned.forEach((p) => {
-                    const prev = schedule.find((orig) => orig.id === p.id);
+                    const prev = safeSchedule.find((orig) => orig.id === p.id);
                     if (
                       !prev ||
                       prev.periodNumber !== p.periodNumber ||
@@ -342,8 +410,8 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
                   });
                   onSuccessToast(
                     changed > 0
-                      ? 'Horários reorganizados do 1º ao 8º!'
-                      : 'Os horários já estão organizados do 1º ao 8º!'
+                      ? `Horários da ${activeSeriesLabel} reorganizados do 1º ao 8º!`
+                      : `Os horários da ${activeSeriesLabel} já estão organizados do 1º ao 8º!`
                   );
                 }}
                 className="text-xs font-semibold text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 transition flex items-center gap-1 cursor-pointer"
@@ -352,15 +420,38 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
                 <Sparkles className="w-3.5 h-3.5 text-teal-500" />
                 Organizar (1º ao 8º)
               </button>
-              <button
-                type="button"
-                onClick={handleResetConfirm}
-                className="text-xs font-semibold text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition flex items-center gap-1 cursor-pointer"
-                title="Restaurar grade padrão da semana (Exclusivo Coordenação)"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Restaurar Padrão
-              </button>
+
+              {isConfirmingReset ? (
+                <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-xl px-2.5 py-1">
+                  <span className="text-[11px] font-bold text-amber-800 dark:text-amber-200">
+                    Restaurar {activeSeriesLabel}?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleResetConfirm}
+                    className="px-2 py-0.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer"
+                  >
+                    Sim
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmingReset(false)}
+                    className="px-2 py-0.5 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold cursor-pointer"
+                  >
+                    Não
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmingReset(true)}
+                  className="text-xs font-semibold text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 transition flex items-center gap-1 cursor-pointer"
+                  title={`Restaurar grade padrão da ${activeSeriesLabel} (Exclusivo Coordenação)`}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Restaurar Padrão
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -415,7 +506,7 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
             }`}
           >
-            Todas ({schedule.length})
+            Todas ({safeSchedule.length})
           </button>
           {uniqueSubjects.map((sub) => {
             const isSel = selectedSubjectFilter.toLowerCase() === sub.toLowerCase();
@@ -703,10 +794,10 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-lg font-extrabold text-slate-900 dark:text-slate-100 font-display flex items-center gap-2">
               <Grid3X3 className="w-5 h-5 text-emerald-600" />
-              Matriz Semanal de Horários
+              Matriz Semanal — {activeSeriesLabel}
             </h3>
             <span className="text-xs text-slate-500 dark:text-slate-400">
-              Clique em qualquer aula para editar
+              {isCoordinator ? 'Clique em qualquer aula para editar' : 'Grade completa da semana'}
             </span>
           </div>
 
@@ -770,11 +861,13 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
                                         setSelectedDay(day.id);
                                         setEditingPeriod({
                                           id: '',
+                                          gradeSeries: activeSeries,
                                           dayOfWeek: day.id,
                                           periodNumber: slot.periodNumber,
                                           startTime: slot.startTime,
                                           endTime: slot.endTime,
                                           subject: '',
+                                          room: activeSeriesOption.roomLabel,
                                         });
                                         setIsAddModalOpen(true);
                                       }
@@ -902,7 +995,8 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
         isOpen={isAddModalOpen}
         period={editingPeriod}
         initialDay={selectedDay}
-        schedule={safeSchedule}
+        initialSeries={activeSeries}
+        schedule={allSafeSchedule}
         onClose={() => {
           setIsAddModalOpen(false);
           setEditingPeriod(null);
