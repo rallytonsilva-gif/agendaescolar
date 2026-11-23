@@ -541,17 +541,33 @@ export default function App() {
 
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-[#F4F7F6] dark:bg-slate-950 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full" />
+      <div className="min-h-screen bg-[#F4F7F6] dark:bg-slate-950 flex items-center justify-center relative overflow-hidden">
+        <img
+          src="/assets/aistudio/images_362d40e0.png"
+          alt=""
+          aria-hidden="true"
+          className="fixed inset-0 m-auto w-[85vw] max-w-2xl max-h-[80vh] object-contain opacity-65 dark:opacity-55 crest-bg-image pointer-events-none select-none"
+        />
+        <div className="relative z-10 w-12 h-12 rounded-2xl bg-white/90 dark:bg-slate-900/85 backdrop-blur-md border border-slate-200/80 dark:border-white/15 flex items-center justify-center shadow-xl">
+          <div className="animate-spin w-7 h-7 border-3 border-emerald-600 dark:border-emerald-400 border-t-transparent rounded-full" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/80 dark:bg-slate-950 text-slate-900 dark:text-slate-100 py-6 sm:py-8 px-4 sm:px-6 lg:px-8 font-sans antialiased transition-colors duration-200 relative overflow-x-hidden bg-grid-subtle">
-      {/* Ambient background glow accents */}
-      <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[800px] h-[380px] bg-gradient-to-b from-emerald-500/12 via-teal-500/6 to-transparent dark:from-emerald-600/18 dark:via-teal-600/10 dark:to-transparent rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute top-[600px] right-0 w-[500px] h-[500px] bg-teal-500/8 dark:bg-teal-500/12 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen text-slate-900 dark:text-slate-100 py-6 sm:py-8 px-4 sm:px-6 lg:px-8 font-sans antialiased transition-colors duration-200 relative overflow-x-hidden">
+      {/* Fixed centered school crest background (same stacking context as backdrop color for proper blending) */}
+      <div className="fixed inset-0 pointer-events-none flex items-center justify-center p-6 sm:p-10 overflow-hidden bg-slate-50 dark:bg-slate-950">
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[800px] h-[380px] bg-gradient-to-b from-emerald-500/12 via-teal-500/6 to-transparent dark:from-emerald-600/18 dark:via-teal-600/10 dark:to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-[600px] right-0 w-[500px] h-[500px] bg-teal-500/8 dark:bg-teal-500/12 rounded-full blur-3xl pointer-events-none" />
+        <img
+          src="/assets/aistudio/images_362d40e0.png"
+          alt=""
+          aria-hidden="true"
+          className="relative w-full max-w-2xl max-h-[82vh] object-contain opacity-80 dark:opacity-65 crest-bg-image select-none"
+        />
+      </div>
 
       <div className="max-w-6xl mx-auto relative z-10">
         {/* Header with View Tabs and Role Indicator */}
@@ -748,8 +764,10 @@ export default function App() {
         />
 
         {/* Minimal Clean Footer */}
-        <footer className="mt-12 pt-6 pb-4 border-t border-slate-200/60 dark:border-slate-800/60 text-center text-xs text-slate-600 dark:text-slate-400 font-medium">
-          <p>Agenda Escolar do CETI Miguel Arcoverde • Organização de Estudos, Provas & Calendário Letivo</p>
+        <footer className="mt-12 pt-4 pb-4 text-center text-xs text-slate-700 dark:text-slate-200 font-medium">
+          <p className="inline-block px-4 py-2 rounded-2xl bg-white/85 dark:bg-slate-900/85 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-sm">
+            Agenda Escolar do CETI Miguel Arcoverde • Organização de Estudos, Provas & Calendário Letivo
+          </p>
         </footer>
 
         {/* Toast Feedback */}

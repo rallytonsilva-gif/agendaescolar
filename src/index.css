@@ -27,6 +27,17 @@
   background-size: 24px 24px;
 }
 
+/* School crest background polarity & blending */
+.crest-bg-image {
+  mix-blend-mode: multiply;
+  filter: contrast(1.2);
+}
+
+.dark .crest-bg-image {
+  mix-blend-mode: screen;
+  filter: invert(1) brightness(1.25) contrast(1.1);
+}
+
 /* Custom subtle scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

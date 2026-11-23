@@ -66,7 +66,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="mb-7" id="app-header">
       {/* Top Branding Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-200/70 dark:border-slate-800/80">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 sm:p-5 rounded-3xl bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-white/60 dark:border-slate-800/80 shadow-lg">
         <div>
           <div className="flex items-center gap-3.5">
             {!logoError ? (
@@ -197,7 +197,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Navigation View Tabs - Modern Segmented Control */}
       <div className="pt-4 overflow-x-auto pb-1" id="main-navigation-tabs">
-        <div className="flex items-center gap-1.5 p-1.5 bg-slate-200/60 dark:bg-slate-900/90 rounded-2xl border border-slate-200/70 dark:border-slate-800/80 backdrop-blur-xs min-w-max">
+        <div className="flex items-center gap-1.5 p-1.5 bg-white/85 dark:bg-slate-900/90 rounded-2xl border border-white/60 dark:border-slate-800/80 backdrop-blur-md shadow-md min-w-max">
           <button
             type="button"
             onClick={() => onTabChange('tarefas')}
