@@ -111,7 +111,7 @@ service cloud.firestore {
 
     match /events/{eventId} {
       allow get: if isValidId(eventId);
-      allow list: if resource.data.id is string;
+      allow list: if request.time is timestamp;
       allow create: if isAdmin()
         && isValidId(eventId)
         && isValidEvent(incoming())
@@ -131,7 +131,7 @@ service cloud.firestore {
 
     match /tasks/{taskId} {
       allow get: if isValidId(taskId);
-      allow list: if resource.data.id is string;
+      allow list: if request.time is timestamp;
       allow create: if isAdmin()
         && isValidId(taskId)
         && isValidTask(incoming())
@@ -151,7 +151,7 @@ service cloud.firestore {
 
     match /schedule/{periodId} {
       allow get: if isValidId(periodId);
-      allow list: if resource.data.id is string;
+      allow list: if request.time is timestamp;
       allow create: if isAdmin()
         && isValidId(periodId)
         && isValidClassPeriod(incoming())
@@ -170,7 +170,7 @@ service cloud.firestore {
 
     match /meals/{mealId} {
       allow get: if isValidId(mealId);
-      allow list: if resource.data.id is string;
+      allow list: if request.time is timestamp;
       allow create: if isAdmin()
         && isValidId(mealId)
         && isValidMeal(incoming())
