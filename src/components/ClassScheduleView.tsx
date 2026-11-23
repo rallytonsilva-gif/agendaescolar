@@ -326,8 +326,25 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
                 type="button"
                 onClick={() => {
                   const cleaned = sanitizeSchedule(schedule);
-                  cleaned.forEach((p) => onUpdatePeriod(p));
-                  onSuccessToast('Horários reorganizados do 1º ao 8º!');
+                  let changed = 0;
+                  cleaned.forEach((p) => {
+                    const prev = schedule.find((orig) => orig.id === p.id);
+                    if (
+                      !prev ||
+                      prev.periodNumber !== p.periodNumber ||
+                      prev.dayOfWeek !== p.dayOfWeek ||
+                      prev.startTime !== p.startTime ||
+                      prev.endTime !== p.endTime
+                    ) {
+                      changed++;
+                      onUpdatePeriod(p);
+                    }
+                  });
+                  onSuccessToast(
+                    changed > 0
+                      ? 'Horários reorganizados do 1º ao 8º!'
+                      : 'Os horários já estão organizados do 1º ao 8º!'
+                  );
                 }}
                 className="text-xs font-semibold text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 transition flex items-center gap-1 cursor-pointer"
                 title="Garantir ordem de 1º a 8º horário para todos os dias"

@@ -1,0 +1,281 @@
+{
+  "entities": {
+    "SchoolEvent": {
+      "title": "SchoolEvent",
+      "description": "Evento, prova, trabalho, reunião ou feriado escolar publicado pela coordenação.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "category": {
+          "type": "string",
+          "enum": ["prova", "trabalho", "reuniao", "feriado", "evento"]
+        },
+        "date": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 20
+        },
+        "time": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "location": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "subject": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "authorUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "title", "category", "date", "createdBy", "authorUid", "createdAt"]
+    },
+    "SchoolTask": {
+      "title": "SchoolTask",
+      "description": "Tarefa ou lição escolar oficial cadastrada pela coordenação para a turma.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "date": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 20
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["alta", "media", "baixa"]
+        },
+        "authorUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "title", "subject", "date", "priority", "authorUid", "createdAt"]
+    },
+    "ClassPeriod": {
+      "title": "ClassPeriod",
+      "description": "Período de aula semanal na grade curricular oficial.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "dayOfWeek": {
+          "type": "string",
+          "enum": ["segunda", "terca", "quarta", "quinta", "sexta"]
+        },
+        "periodNumber": {
+          "type": "number"
+        },
+        "startTime": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 10
+        },
+        "endTime": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 10
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "teacher": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "room": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "authorUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "dayOfWeek", "periodNumber", "startTime", "endTime", "subject", "authorUid", "updatedAt"]
+    },
+    "SchoolMeal": {
+      "title": "SchoolMeal",
+      "description": "Refeição escolar diária do cardápio oficial PNAE.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "dayOfWeek": {
+          "type": "string",
+          "enum": ["segunda", "terca", "quarta", "quinta", "sexta"]
+        },
+        "mealType": {
+          "type": "string",
+          "enum": ["merenda_manha", "almoco", "merenda_tarde"]
+        },
+        "time": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 30
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "sides": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "beverage": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "dessert": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "calories": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "allergens": {
+          "type": "array"
+        },
+        "nutritionalNotes": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "authorUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "dayOfWeek", "mealType", "time", "title", "authorUid", "updatedAt"]
+    },
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Usuário autorizado da coordenação escolar.",
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["coordenador"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["role", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/events/{eventId}": {
+      "schema": {
+        "$ref": "#/entities/SchoolEvent"
+      },
+      "description": "Eventos, provas, reuniões e feriados escolares compartilhados com todos os visitantes."
+    },
+    "/tasks/{taskId}": {
+      "schema": {
+        "$ref": "#/entities/SchoolTask"
+      },
+      "description": "Tarefas escolares oficiais publicadas pela coordenação para toda a escola."
+    },
+    "/schedule/{periodId}": {
+      "schema": {
+        "$ref": "#/entities/ClassPeriod"
+      },
+      "description": "Grade semanal oficial de horários de aula."
+    },
+    "/meals/{mealId}": {
+      "schema": {
+        "$ref": "#/entities/SchoolMeal"
+      },
+      "description": "Cardápio semanal oficial da merenda e almoço escolar."
+    },
+    "/admins/{adminUid}": {
+      "schema": {
+        "$ref": "#/entities/AdminUser"
+      },
+      "description": "Registros de UIDs autorizados como coordenadores."
+    }
+  }
+}

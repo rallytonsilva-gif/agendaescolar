@@ -9,6 +9,7 @@ export const PIN_STORAGE_KEY = '@school_agenda_coord_pin';
 export const THEME_STORAGE_KEY = '@school_agenda_theme';
 export const SCHEDULE_MIGRATION_KEY = '@school_agenda_schedule_8periods_migrated';
 export const DATA_VERSION_KEY = '@school_agenda_data_version';
+export const COMPLETED_TASK_IDS_KEY = '@school_agenda_completed_task_ids';
 export const CURRENT_DATA_VERSION = '2026-11-23-v2';
 
 export const DEFAULT_TASKS: Task[] = [
@@ -1666,6 +1667,28 @@ export function saveStoredSchedule(schedule: ClassPeriod[]): void {
     localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(sanitized));
   } catch (err) {
     console.error('Error saving schedule to localStorage:', err);
+  }
+}
+
+export function getCompletedTaskIds(): string[] {
+  try {
+    const raw = localStorage.getItem(COMPLETED_TASK_IDS_KEY);
+    if (!raw) return ['3'];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((x): x is string => typeof x === 'string');
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCompletedTaskIds(ids: string[]): void {
+  try {
+    localStorage.setItem(COMPLETED_TASK_IDS_KEY, JSON.stringify(ids));
+  } catch (err) {
+    console.error('Error saving completed task IDs:', err);
   }
 }
 

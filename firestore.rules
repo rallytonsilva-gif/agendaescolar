@@ -1,0 +1,200 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ==================== GLOBAL HELPERS ====================
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() && request.auth.token.email == 'rallyton.silva@aluno.edu.pi.gov.br';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isOptionalString(data, key, maxLen) {
+      return !(key in data) || (data[key] is string && data[key].size() <= maxLen);
+    }
+
+    // ==================== VALIDATION HELPERS ====================
+    function isValidEvent(data) {
+      return data.keys().hasAll(['id', 'title', 'category', 'date', 'createdBy', 'authorUid', 'createdAt'])
+        && data.keys().hasOnly(['id', 'title', 'category', 'date', 'time', 'location', 'subject', 'description', 'createdBy', 'authorUid', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && data.category in ['prova', 'trabalho', 'reuniao', 'feriado', 'evento']
+        && data.date is string && data.date.size() >= 8 && data.date.size() <= 20
+        && isOptionalString(data, 'time', 20)
+        && isOptionalString(data, 'location', 120)
+        && isOptionalString(data, 'subject', 80)
+        && isOptionalString(data, 'description', 1000)
+        && data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 100
+        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128
+        && data.createdAt is timestamp
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidTask(data) {
+      return data.keys().hasAll(['id', 'title', 'subject', 'date', 'priority', 'authorUid', 'createdAt'])
+        && data.keys().hasOnly(['id', 'title', 'subject', 'date', 'priority', 'authorUid', 'createdAt', 'updatedAt'])
+        && isValidId(data.id)
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 200
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 80
+        && data.date is string && data.date.size() >= 8 && data.date.size() <= 20
+        && data.priority in ['alta', 'media', 'baixa']
+        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128
+        && data.createdAt is timestamp
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidClassPeriod(data) {
+      return data.keys().hasAll(['id', 'dayOfWeek', 'periodNumber', 'startTime', 'endTime', 'subject', 'authorUid', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'dayOfWeek', 'periodNumber', 'startTime', 'endTime', 'subject', 'teacher', 'room', 'notes', 'authorUid', 'updatedAt'])
+        && isValidId(data.id)
+        && data.dayOfWeek in ['segunda', 'terca', 'quarta', 'quinta', 'sexta']
+        && data.periodNumber is number && data.periodNumber >= 1 && data.periodNumber <= 8
+        && data.startTime is string && data.startTime.size() >= 4 && data.startTime.size() <= 10
+        && data.endTime is string && data.endTime.size() >= 4 && data.endTime.size() <= 10
+        && data.subject is string && data.subject.size() >= 1 && data.subject.size() <= 80
+        && isOptionalString(data, 'teacher', 100)
+        && isOptionalString(data, 'room', 60)
+        && isOptionalString(data, 'notes', 300)
+        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidMeal(data) {
+      return data.keys().hasAll(['id', 'dayOfWeek', 'mealType', 'time', 'title', 'authorUid', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'dayOfWeek', 'mealType', 'time', 'title', 'sides', 'beverage', 'dessert', 'calories', 'allergens', 'nutritionalNotes', 'authorUid', 'updatedAt'])
+        && isValidId(data.id)
+        && data.dayOfWeek in ['segunda', 'terca', 'quarta', 'quinta', 'sexta']
+        && data.mealType in ['merenda_manha', 'almoco', 'merenda_tarde']
+        && data.time is string && data.time.size() >= 3 && data.time.size() <= 30
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 160
+        && isOptionalString(data, 'sides', 200)
+        && isOptionalString(data, 'beverage', 120)
+        && isOptionalString(data, 'dessert', 120)
+        && isOptionalString(data, 'calories', 40)
+        && isOptionalString(data, 'nutritionalNotes', 300)
+        && (!('allergens' in data) || (
+          data.allergens is list
+          && data.allergens.size() <= 10
+          && (data.allergens.size() == 0 || data.allergens[0] is string)
+        ))
+        && data.authorUid is string && data.authorUid.size() >= 1 && data.authorUid.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    // ==================== COLLECTIONS ====================
+    // Public read for all visitors (non-PII school calendar), write restricted to verified Coordinators
+
+    match /events/{eventId} {
+      allow get: if isValidId(eventId);
+      allow list: if resource.data.id is string;
+      allow create: if isAdmin()
+        && isValidId(eventId)
+        && isValidEvent(incoming())
+        && incoming().id == eventId
+        && incoming().authorUid == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(eventId)
+        && isValidEvent(incoming())
+        && incoming().id == existing().id
+        && incoming().authorUid == existing().authorUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'category', 'date', 'time', 'location', 'subject', 'description', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(eventId);
+    }
+
+    match /tasks/{taskId} {
+      allow get: if isValidId(taskId);
+      allow list: if resource.data.id is string;
+      allow create: if isAdmin()
+        && isValidId(taskId)
+        && isValidTask(incoming())
+        && incoming().id == taskId
+        && incoming().authorUid == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(taskId)
+        && isValidTask(incoming())
+        && incoming().id == existing().id
+        && incoming().authorUid == existing().authorUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'subject', 'date', 'priority', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(taskId);
+    }
+
+    match /schedule/{periodId} {
+      allow get: if isValidId(periodId);
+      allow list: if resource.data.id is string;
+      allow create: if isAdmin()
+        && isValidId(periodId)
+        && isValidClassPeriod(incoming())
+        && incoming().id == periodId
+        && incoming().authorUid == request.auth.uid
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(periodId)
+        && isValidClassPeriod(incoming())
+        && incoming().id == existing().id
+        && incoming().authorUid == request.auth.uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['dayOfWeek', 'periodNumber', 'startTime', 'endTime', 'subject', 'teacher', 'room', 'notes', 'authorUid', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(periodId);
+    }
+
+    match /meals/{mealId} {
+      allow get: if isValidId(mealId);
+      allow list: if resource.data.id is string;
+      allow create: if isAdmin()
+        && isValidId(mealId)
+        && isValidMeal(incoming())
+        && incoming().id == mealId
+        && incoming().authorUid == request.auth.uid
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin()
+        && isValidId(mealId)
+        && isValidMeal(incoming())
+        && incoming().id == existing().id
+        && incoming().authorUid == request.auth.uid
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['dayOfWeek', 'mealType', 'time', 'title', 'sides', 'beverage', 'dessert', 'calories', 'allergens', 'nutritionalNotes', 'authorUid', 'updatedAt']);
+      allow delete: if isAdmin() && isValidId(mealId);
+    }
+
+    match /admins/{adminUid} {
+      allow get: if isSignedIn() && (request.auth.uid == adminUid || isBootstrappedAdmin());
+      allow list: if false;
+      allow create, update, delete: if isBootstrappedAdmin() && isValidId(adminUid)
+        && incoming().keys().hasAll(['role', 'createdAt'])
+        && incoming().keys().hasOnly(['role', 'createdAt'])
+        && incoming().role == 'coordenador'
+        && incoming().createdAt == request.time;
+    }
+  }
+}

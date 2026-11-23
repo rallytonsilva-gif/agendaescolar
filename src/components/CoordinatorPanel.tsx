@@ -20,6 +20,7 @@ import {
   RotateCcw,
   ArrowRight,
   Info,
+  Cloud,
 } from 'lucide-react';
 import { SchoolEvent, EventCategory } from '../types';
 import { EventForm } from './EventForm';
@@ -28,6 +29,8 @@ import { getEventCategoryDetails, getBrasiliaNowParts } from '../utils/storage';
 
 interface CoordinatorPanelProps {
   events: SchoolEvent[];
+  isCloudAdmin?: boolean;
+  onOpenAuthModal?: () => void;
   onAddEvent: (
     title: string,
     category: EventCategory,
@@ -45,6 +48,8 @@ interface CoordinatorPanelProps {
 
 export const CoordinatorPanel: React.FC<CoordinatorPanelProps> = ({
   events,
+  isCloudAdmin = false,
+  onOpenAuthModal,
   onAddEvent,
   onUpdateEvent,
   onDeleteEvent,
@@ -157,6 +162,31 @@ export const CoordinatorPanel: React.FC<CoordinatorPanelProps> = ({
           </div>
         </div>
       </div>
+
+      {!isCloudAdmin && onOpenAuthModal && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+              <Cloud className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-amber-900 dark:text-amber-100">
+                Conecte sua conta Google para publicar na nuvem
+              </h3>
+              <p className="text-xs text-amber-800/90 dark:text-amber-200/90 mt-0.5">
+                Para que novos eventos, tarefas, horários e cardápios fiquem visíveis para todos os alunos em qualquer dispositivo, conecte a conta Google autorizada da Coordenação.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onOpenAuthModal}
+            className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shrink-0 self-start sm:self-auto cursor-pointer shadow-xs"
+          >
+            Conectar Conta Google
+          </button>
+        </div>
+      )}
 
       {/* Event Add/Edit Form (Coordinators Only) */}
       <EventForm

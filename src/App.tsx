@@ -3,30 +3,54 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { User } from 'firebase/auth';
 import confetti from 'canvas-confetti';
 import { AnimatePresence } from 'motion/react';
-import { Task, SchoolEvent, EventCategory, FilterStatus, MainViewTab, UserRole, ThemeMode, SchoolMeal, ClassPeriod } from './types';
 import {
-  getStoredTasks,
-  saveStoredTasks,
+  Task,
+  SchoolEvent,
+  EventCategory,
+  FilterStatus,
+  MainViewTab,
+  UserRole,
+  ThemeMode,
+  SchoolMeal,
+  ClassPeriod,
+} from './types';
+import {
   DEFAULT_TASKS,
-  getStoredEvents,
-  saveStoredEvents,
   DEFAULT_EVENTS,
-  getStoredMeals,
-  saveStoredMeals,
   DEFAULT_MEALS,
-  getStoredSchedule,
-  saveStoredSchedule,
-  sanitizeSchedule,
   DEFAULT_SCHEDULE,
   getStoredRole,
   saveStoredRole,
   getStoredTheme,
   saveStoredTheme,
+  getCompletedTaskIds,
+  saveCompletedTaskIds,
   runStorageMigrations,
 } from './utils/storage';
+import {
+  subscribeToAuth,
+  checkIsAdminUser,
+  subscribeEvents,
+  subscribeTasks,
+  subscribeSchedule,
+  subscribeMeals,
+  createEventInFirestore,
+  updateEventInFirestore,
+  deleteEventInFirestore,
+  createTaskInFirestore,
+  deleteTaskInFirestore,
+  saveClassPeriodInFirestore,
+  deleteClassPeriodInFirestore,
+  saveMealInFirestore,
+  seedEmptyCollectionsIfNeeded,
+  resetScheduleInFirestore,
+  resetMealsInFirestore,
+  resetAllDefaultsInFirestore,
+} from './firebase';
 import { Header } from './components/Header';
 import { StatsBanner } from './components/StatsBanner';
 import { TaskForm } from './components/TaskForm';
@@ -40,22 +64,42 @@ import { MealsScheduleView } from './components/MealsScheduleView';
 import { GamesHubView } from './components/GamesHubView';
 import { CoordinatorPanel } from './components/CoordinatorPanel';
 import { RoleAuthModal } from './components/RoleAuthModal';
-import { GraduationCap, ShieldCheck, Lock } from 'lucide-react';
+import { GraduationCap, ShieldCheck } from 'lucide-react';
 
 export default function App() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [events, setEvents] = useState<SchoolEvent[]>([]);
-  const [meals, setMeals] = useState<SchoolMeal[]>([]);
-  const [schedule, setSchedule] = useState<ClassPeriod[]>([]);
-  const [userRole, setUserRole] = useState<UserRole>('aluno');
+  const [rawTasks, setRawTasks] = useState<Omit<Task, 'done'>[]>([]);
+  const [rawEvents, setRawEvents] = useState<SchoolEvent[]>([]);
+  const [rawMeals, setRawMeals] = useState<SchoolMeal[]>([]);
+  const [rawSchedule, setRawSchedule] = useState<ClassPeriod[]>([]);
+
+  const [tasksEmpty, setTasksEmpty] = useState(true);
+  const [eventsEmpty, setEventsEmpty] = useState(true);
+  const [mealsEmpty, setMealsEmpty] = useState(true);
+  const [scheduleEmpty, setScheduleEmpty] = useState(true);
+
+  const [tasksLoaded, setTasksLoaded] = useState(false);
+  const [eventsLoaded, setEventsLoaded] = useState(false);
+  const [mealsLoaded, setMealsLoaded] = useState(false);
+  const [scheduleLoaded, setScheduleLoaded] = useState(false);
+
+  const [completedTaskIds, setCompletedTaskIds] = useState<string[]>(() => getCompletedTaskIds());
+  const [userRole, setUserRole] = useState<UserRole>(getStoredRole);
   const [theme, setTheme] = useState<ThemeMode>(getStoredTheme);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [isCloudAdmin, setIsCloudAdmin] = useState(false);
+
   const [activeTab, setActiveTab] = useState<MainViewTab>('tarefas');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('todas');
   const [selectedSubject, setSelectedSubject] = useState('todas');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [fatalError, setFatalError] = useState<Error | null>(null);
+  const seededForUidRef = useRef<string | null>(null);
+
+  if (fatalError) {
+    throw fatalError;
+  }
 
   // Sync theme with DOM and localStorage
   useEffect(() => {
@@ -67,56 +111,121 @@ export default function App() {
     saveStoredTheme(theme);
   }, [theme]);
 
-  // Carregar dados salvos no localStorage e executar migrações
+  // Run local storage migrations and sync local preferences across tabs
   useEffect(() => {
     runStorageMigrations();
-    const loadedTasks = getStoredTasks();
-    const loadedEvents = getStoredEvents();
-    const loadedMeals = getStoredMeals();
-    const loadedSchedule = getStoredSchedule();
-    const loadedRole = getStoredRole();
-    const loadedTheme = getStoredTheme();
-    setTasks(loadedTasks);
-    setEvents(loadedEvents);
-    setMeals(loadedMeals);
-    setSchedule(loadedSchedule);
-    setUserRole(loadedRole);
-    setTheme(loadedTheme);
-    setIsLoaded(true);
+    setUserRole(getStoredRole());
+    setTheme(getStoredTheme());
+    setCompletedTaskIds(getCompletedTaskIds());
 
     const handleStorageSync = () => {
-      setTasks(getStoredTasks());
-      setEvents(getStoredEvents());
-      setMeals(getStoredMeals());
-      setSchedule(getStoredSchedule());
       setUserRole(getStoredRole());
       setTheme(getStoredTheme());
+      setCompletedTaskIds(getCompletedTaskIds());
     };
     window.addEventListener('storage', handleStorageSync);
     return () => window.removeEventListener('storage', handleStorageSync);
   }, []);
 
+  // Subscribe to Firebase Auth & verify Coordinator admin status
+  useEffect(() => {
+    const unsubscribe = subscribeToAuth(async (user) => {
+      setAuthUser(user);
+      const admin = await checkIsAdminUser(user);
+      setIsCloudAdmin(admin);
+
+      if (admin && user && seededForUidRef.current !== user.uid) {
+        seededForUidRef.current = user.uid;
+        try {
+          await seedEmptyCollectionsIfNeeded(user.uid);
+        } catch (err) {
+          setFatalError(err instanceof Error ? err : new Error(String(err)));
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Subscribe to real-time Firestore collections so all visitors see Coordinator updates immediately
+  useEffect(() => {
+    const handleStreamError = (err: unknown) => {
+      setFatalError(err instanceof Error ? err : new Error(String(err)));
+    };
+
+    const unsubEvents = subscribeEvents((list, isEmpty) => {
+      setRawEvents(list);
+      setEventsEmpty(isEmpty);
+      setEventsLoaded(true);
+    }, handleStreamError);
+
+    const unsubTasks = subscribeTasks((list, isEmpty) => {
+      setRawTasks(list);
+      setTasksEmpty(isEmpty);
+      setTasksLoaded(true);
+    }, handleStreamError);
+
+    const unsubSchedule = subscribeSchedule((list, isEmpty) => {
+      setRawSchedule(list);
+      setScheduleEmpty(isEmpty);
+      setScheduleLoaded(true);
+    }, handleStreamError);
+
+    const unsubMeals = subscribeMeals((list, isEmpty) => {
+      setRawMeals(list);
+      setMealsEmpty(isEmpty);
+      setMealsLoaded(true);
+    }, handleStreamError);
+
+    return () => {
+      unsubEvents();
+      unsubTasks();
+      unsubSchedule();
+      unsubMeals();
+    };
+  }, []);
+
+  const isLoaded = tasksLoaded && eventsLoaded && mealsLoaded && scheduleLoaded;
+  const dbInitialized = !eventsEmpty || !tasksEmpty || !scheduleEmpty || !mealsEmpty;
+
+  const events = useMemo(() => {
+    if (!dbInitialized && eventsEmpty) return DEFAULT_EVENTS;
+    return rawEvents;
+  }, [dbInitialized, eventsEmpty, rawEvents]);
+
+  const schedule = useMemo(() => {
+    if (scheduleEmpty) return DEFAULT_SCHEDULE;
+    return rawSchedule;
+  }, [scheduleEmpty, rawSchedule]);
+
+  const meals = useMemo(() => {
+    if (mealsEmpty) return DEFAULT_MEALS;
+    return rawMeals;
+  }, [mealsEmpty, rawMeals]);
+
+  const tasks: Task[] = useMemo(() => {
+    const base = !dbInitialized && tasksEmpty ? DEFAULT_TASKS : rawTasks;
+    const completedSet = new Set(completedTaskIds);
+    return base.map((t) => ({
+      ...t,
+      done: completedSet.has(t.id),
+    }));
+  }, [dbInitialized, tasksEmpty, rawTasks, completedTaskIds]);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3400);
+  };
+
   const handleToggleTheme = () => {
     setTheme((prev) => {
       const nextTheme = prev === 'dark' ? 'light' : 'dark';
-      showToast(nextTheme === 'dark' ? '🥷 Modo Ninja ativado!' : 'Modo Claro ativado!');
+      showToast(nextTheme === 'dark' ? 'Modo Ninja ativado!' : 'Modo Claro ativado!');
       return nextTheme;
     });
   };
 
-  // Salvar tarefas no localStorage
-  const updateAndSaveTasks = (newTasks: Task[]) => {
-    setTasks(newTasks);
-    saveStoredTasks(newTasks);
-  };
-
-  // Salvar eventos no localStorage
-  const updateAndSaveEvents = (newEvents: SchoolEvent[]) => {
-    setEvents(newEvents);
-    saveStoredEvents(newEvents);
-  };
-
-  // Alterar papel do usuário (Aluno / Coordenador)
   const handleRoleChange = (newRole: UserRole) => {
     setUserRole(newRole);
     saveStoredRole(newRole);
@@ -127,27 +236,32 @@ export default function App() {
     }
   };
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3200);
+  const requireCloudAdmin = (): User | null => {
+    if (userRole !== 'coordenador') {
+      showToast('Apenas no modo Coordenador é permitido alterar os dados da escola.');
+      setIsAuthModalOpen(true);
+      return null;
+    }
+    if (!authUser || !isCloudAdmin) {
+      showToast('Conecte a conta Google da Coordenação para salvar e publicar para todos.');
+      setIsAuthModalOpen(true);
+      return null;
+    }
+    return authUser;
   };
 
-  // Task actions (Apenas Coordenadores podem adicionar ou excluir tarefas oficiais)
-  const handleAddTask = (
+  // Task actions
+  const handleAddTask = async (
     title: string,
     subject: string,
     date: string,
     priority: 'alta' | 'media' | 'baixa'
   ) => {
-    if (userRole !== 'coordenador') {
-      showToast('Apenas no modo Coordenador é permitido adicionar tarefas.');
-      return;
-    }
+    const adminUser = requireCloudAdmin();
+    if (!adminUser) return;
 
     const newTask: Task = {
-      id: String(Date.now()),
+      id: `task_${Date.now()}`,
       title,
       subject,
       date,
@@ -156,24 +270,27 @@ export default function App() {
       createdAt: Date.now(),
     };
 
-    const updatedTasks = [newTask, ...tasks];
-    updateAndSaveTasks(updatedTasks);
-    showToast(`Tarefa "${title}" adicionada com sucesso!`);
+    try {
+      await createTaskInFirestore(newTask, adminUser.uid);
+      showToast(`Tarefa "${title}" publicada para todos os alunos!`);
+    } catch (err) {
+      setFatalError(err instanceof Error ? err : new Error(String(err)));
+    }
   };
 
   const handleToggleTask = (id: string) => {
-    const target = tasks.find((t) => t.id === id);
-    const willBeDone = target ? !target.done : false;
+    const isCurrentlyDone = completedTaskIds.includes(id);
+    const nextIds = isCurrentlyDone
+      ? completedTaskIds.filter((item) => item !== id)
+      : [...completedTaskIds, id];
 
-    const updatedTasks = tasks.map((task) =>
-      task.id === id ? { ...task, done: !task.done } : task
-    );
+    setCompletedTaskIds(nextIds);
+    saveCompletedTaskIds(nextIds);
 
-    updateAndSaveTasks(updatedTasks);
-
-    if (willBeDone) {
-      const remainingPending = updatedTasks.filter((t) => !t.done).length;
-      if (remainingPending === 0 && updatedTasks.length > 0) {
+    if (!isCurrentlyDone) {
+      const nextSet = new Set(nextIds);
+      const remainingPending = tasks.filter((t) => !nextSet.has(t.id)).length;
+      if (remainingPending === 0 && tasks.length > 0) {
         confetti({
           particleCount: 80,
           spread: 70,
@@ -183,22 +300,20 @@ export default function App() {
     }
   };
 
-  const handleDeleteTask = (id: string) => {
-    if (userRole !== 'coordenador') {
-      showToast('Apenas no modo Coordenador é permitido excluir tarefas.');
-      return;
-    }
+  const handleDeleteTask = async (id: string) => {
+    const adminUser = requireCloudAdmin();
+    if (!adminUser) return;
 
-    const target = tasks.find((t) => t.id === id);
-    const updatedTasks = tasks.filter((task) => task.id !== id);
-    updateAndSaveTasks(updatedTasks);
-    if (target) {
-      showToast(`Tarefa removida pela Coordenação.`);
+    try {
+      await deleteTaskInFirestore(id);
+      showToast('Tarefa removida pela Coordenação.');
+    } catch (err) {
+      setFatalError(err instanceof Error ? err : new Error(String(err)));
     }
   };
 
-  // Event actions (Exclusivo para Coordenadores)
-  const handleAddEvent = (
+  // Event actions (Exclusivo para Coordenadores -> sincroniza em tempo real para todos)
+  const handleAddEvent = async (
     title: string,
     category: EventCategory,
     date: string,
@@ -207,10 +322,8 @@ export default function App() {
     subject?: string,
     description?: string
   ) => {
-    if (userRole !== 'coordenador') {
-      showToast('Apenas no modo Coordenador é permitido criar eventos.');
-      return;
-    }
+    const adminUser = requireCloudAdmin();
+    if (!adminUser) return;
 
     const newEvent: SchoolEvent = {
       id: `ev_${Date.now()}`,
@@ -225,112 +338,113 @@ export default function App() {
       createdAt: Date.now(),
     };
 
-    const updatedEvents = [newEvent, ...events];
-    updateAndSaveEvents(updatedEvents);
-    showToast(`Evento "${title}" publicado pela Coordenação!`);
-  };
-
-  const handleUpdateEvent = (updated: SchoolEvent) => {
-    if (userRole !== 'coordenador') {
-      showToast('Apenas no modo Coordenador é permitido alterar eventos.');
-      return;
-    }
-
-    const updatedEvents = events.map((e) => (e.id === updated.id ? updated : e));
-    updateAndSaveEvents(updatedEvents);
-    showToast(`Evento "${updated.title}" atualizado pela Coordenação!`);
-  };
-
-  const handleDeleteEvent = (id: string) => {
-    if (userRole !== 'coordenador') {
-      showToast('Apenas no modo Coordenador é permitido excluir eventos.');
-      return;
-    }
-
-    const target = events.find((e) => e.id === id);
-    const updatedEvents = events.filter((e) => e.id !== id);
-    updateAndSaveEvents(updatedEvents);
-    if (target) {
-      showToast(`Evento excluído pela Coordenação.`);
+    try {
+      await createEventInFirestore(newEvent, adminUser.uid);
+      showToast(`Evento "${title}" publicado para todos os alunos!`);
+    } catch (err) {
+      setFatalError(err instanceof Error ? err : new Error(String(err)));
     }
   };
 
-  const handleResetToDefaults = () => {
-    if (userRole !== 'coordenador') {
-      showToast('Apenas no modo Coordenador é permitido restaurar os dados da escola.');
-      return;
-    }
+  const handleUpdateEvent = async (updated: SchoolEvent) => {
+    const adminUser = requireCloudAdmin();
+    if (!adminUser) return;
 
-    updateAndSaveTasks(DEFAULT_TASKS);
-    updateAndSaveEvents(DEFAULT_EVENTS);
-    setMeals(DEFAULT_MEALS);
-    saveStoredMeals(DEFAULT_MEALS);
-    setSchedule(DEFAULT_SCHEDULE);
-    saveStoredSchedule(DEFAULT_SCHEDULE);
-    showToast('Tarefas, eventos, cardápio e horários restaurados pela Coordenação!');
+    try {
+      await updateEventInFirestore(updated, adminUser.uid);
+      showToast(`Evento "${updated.title}" atualizado para todos!`);
+    } catch (err) {
+      setFatalError(err instanceof Error ? err : new Error(String(err)));
+    }
   };
 
-  const handleUpdateMeal = (updatedMeal: SchoolMeal) => {
-    if (userRole !== 'coordenador') {
-      showToast('Apenas no modo Coordenador é permitido alterar a merenda escolar.');
-      return;
-    }
+  const handleDeleteEvent = async (id: string) => {
+    const adminUser = requireCloudAdmin();
+    if (!adminUser) return;
 
-    const updatedMeals = meals.map((m) => (m.id === updatedMeal.id ? updatedMeal : m));
-    setMeals(updatedMeals);
-    saveStoredMeals(updatedMeals);
+    try {
+      await deleteEventInFirestore(id);
+      showToast('Evento excluído pela Coordenação.');
+    } catch (err) {
+      setFatalError(err instanceof Error ? err : new Error(String(err)));
+    }
   };
 
-  const handleResetMeals = () => {
-    if (userRole !== 'coordenador') {
-      showToast('Apenas no modo Coordenador é permitido restaurar o cardápio da merenda.');
-      return;
-    }
+  const handleResetToDefaults = async () => {
+    const adminUser = requireCloudAdmin();
+    if (!adminUser) return;
 
-    setMeals(DEFAULT_MEALS);
-    saveStoredMeals(DEFAULT_MEALS);
+    try {
+      await resetAllDefaultsInFirestore(adminUser.uid);
+      showToast('Tarefas, eventos, cardápio e horários restaurados para todos!');
+    } catch (err) {
+      setFatalError(err instanceof Error ? err : new Error(String(err)));
+    }
+  };
+
+  const handleUpdateMeal = async (updatedMeal: SchoolMeal) => {
+    const adminUser = requireCloudAdmin();
+    if (!adminUser) return;
+
+    try {
+      await saveMealInFirestore(updatedMeal, adminUser.uid);
+    } catch (err) {
+      setFatalError(err instanceof Error ? err : new Error(String(err)));
+    }
+  };
+
+  const handleResetMeals = async () => {
+    const adminUser = requireCloudAdmin();
+    if (!adminUser) return;
+
+    try {
+      await resetMealsInFirestore(adminUser.uid);
+    } catch (err) {
+      setFatalError(err instanceof Error ? err : new Error(String(err)));
+    }
   };
 
   // Schedule / Horários handlers
-  const handleUpdatePeriod = (updatedPeriod: ClassPeriod) => {
-    if (userRole !== 'coordenador') {
-      showToast('Apenas no modo Coordenador é permitido alterar a grade de horários.');
-      return;
-    }
+  const handleUpdatePeriod = async (updatedPeriod: ClassPeriod) => {
+    const adminUser = requireCloudAdmin();
+    if (!adminUser) return;
 
-    setSchedule((prev) => {
-      const cleaned = prev.filter(
+    const conflictingIds = schedule
+      .filter(
         (p) =>
           p.id !== updatedPeriod.id &&
-          !(p.dayOfWeek === updatedPeriod.dayOfWeek && p.periodNumber === updatedPeriod.periodNumber)
-      );
-      const updated = sanitizeSchedule([...cleaned, updatedPeriod]);
-      saveStoredSchedule(updated);
-      return updated;
-    });
+          p.dayOfWeek === updatedPeriod.dayOfWeek &&
+          p.periodNumber === updatedPeriod.periodNumber
+      )
+      .map((p) => p.id);
+
+    try {
+      await saveClassPeriodInFirestore(updatedPeriod, conflictingIds, adminUser.uid);
+    } catch (err) {
+      setFatalError(err instanceof Error ? err : new Error(String(err)));
+    }
   };
 
-  const handleDeletePeriod = (periodId: string) => {
-    if (userRole !== 'coordenador') {
-      showToast('Apenas no modo Coordenador é permitido remover aulas.');
-      return;
-    }
+  const handleDeletePeriod = async (periodId: string) => {
+    const adminUser = requireCloudAdmin();
+    if (!adminUser) return;
 
-    setSchedule((prev) => {
-      const updated = prev.filter((p) => p.id !== periodId);
-      saveStoredSchedule(updated);
-      return updated;
-    });
+    try {
+      await deleteClassPeriodInFirestore(periodId);
+    } catch (err) {
+      setFatalError(err instanceof Error ? err : new Error(String(err)));
+    }
   };
 
-  const handleResetSchedule = () => {
-    if (userRole !== 'coordenador') {
-      showToast('Apenas no modo Coordenador é permitido restaurar a grade de horários.');
-      return;
-    }
+  const handleResetSchedule = async () => {
+    const adminUser = requireCloudAdmin();
+    if (!adminUser) return;
 
-    setSchedule(DEFAULT_SCHEDULE);
-    saveStoredSchedule(DEFAULT_SCHEDULE);
+    try {
+      await resetScheduleInFirestore(adminUser.uid);
+    } catch (err) {
+      setFatalError(err instanceof Error ? err : new Error(String(err)));
+    }
   };
 
   const handleQuickCreateTaskForSubject = (subject: string) => {
@@ -420,10 +534,9 @@ export default function App() {
           onOpenAuthModal={() => setIsAuthModalOpen(true)}
         />
 
-        {/* View Tab 1: Tasks / Tarefas (Personal task tracking for student/coord) */}
+        {/* View Tab 1: Tasks / Tarefas */}
         {activeTab === 'tarefas' && (
           <div id="tab-content-tarefas" className="space-y-6">
-            {/* Stats Progress Banner */}
             {counts.total > 0 && (
               <StatsBanner
                 total={counts.total}
@@ -432,7 +545,6 @@ export default function App() {
               />
             )}
 
-            {/* Add Task Form or Student Read-Only Notice */}
             {userRole === 'coordenador' ? (
               <TaskForm onAddTask={handleAddTask} />
             ) : (
@@ -467,7 +579,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Filters & Search */}
             {counts.total > 0 && (
               <TaskFilters
                 searchQuery={searchQuery}
@@ -481,7 +592,6 @@ export default function App() {
               />
             )}
 
-            {/* Task List */}
             <div className="space-y-2.5" id="task-list-container">
               <AnimatePresence mode="popLayout">
                 {filteredTasks.length > 0 ? (
@@ -509,12 +619,13 @@ export default function App() {
           </div>
         )}
 
-        {/* View Tab 2: Events / Eventos (Read-only for Students, Full Edit for Coordinators) */}
+        {/* View Tab 2: Events / Eventos */}
         {activeTab === 'eventos' && (
           <div id="tab-content-eventos">
             <EventsView
               events={events}
               userRole={userRole}
+              isCloudAdmin={isCloudAdmin}
               onAddEvent={handleAddEvent}
               onUpdateEvent={handleUpdateEvent}
               onDeleteEvent={handleDeleteEvent}
@@ -524,7 +635,7 @@ export default function App() {
           </div>
         )}
 
-        {/* View Tab 3: Calendar View / Visão Calendário */}
+        {/* View Tab 3: Calendar View */}
         {activeTab === 'calendario' && (
           <div id="tab-content-calendario">
             <CalendarMonthView
@@ -535,7 +646,7 @@ export default function App() {
           </div>
         )}
 
-        {/* View Tab 4: School Class Schedule / Horários das Matérias da Semana */}
+        {/* View Tab 4: Class Schedule */}
         {activeTab === 'horarios' && (
           <div id="tab-content-horarios">
             <ClassScheduleView
@@ -552,7 +663,7 @@ export default function App() {
           </div>
         )}
 
-        {/* View Tab 5: School Meals & Lunch Schedule / Agenda da Merenda e Almoço */}
+        {/* View Tab 5: School Meals */}
         {activeTab === 'merenda' && (
           <div id="tab-content-merenda">
             <MealsScheduleView
@@ -565,18 +676,20 @@ export default function App() {
           </div>
         )}
 
-        {/* View Tab 6: School Break & Educational Games / Espaço de Jogos e Recreio */}
+        {/* View Tab 6: Games */}
         {activeTab === 'jogos' && (
           <div id="tab-content-jogos">
             <GamesHubView onSuccessToast={showToast} />
           </div>
         )}
 
-        {/* View Tab 7: Coordinator Management Panel (Exclusive Coordinator Area) */}
+        {/* View Tab 7: Coordinator Management Panel */}
         {activeTab === 'coordenacao' && userRole === 'coordenador' && (
           <div id="tab-content-coordenacao">
             <CoordinatorPanel
               events={events}
+              isCloudAdmin={isCloudAdmin}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
               onAddEvent={handleAddEvent}
               onUpdateEvent={handleUpdateEvent}
               onDeleteEvent={handleDeleteEvent}
@@ -593,6 +706,8 @@ export default function App() {
           currentRole={userRole}
           onRoleChange={handleRoleChange}
           onSuccessToast={showToast}
+          authUser={authUser}
+          isCloudAdmin={isCloudAdmin}
         />
 
         {/* Minimal Clean Footer */}

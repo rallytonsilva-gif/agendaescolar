@@ -11,6 +11,7 @@ import {
   Lock,
   ArrowRight,
   Info,
+  Cloud,
 } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
 import { SchoolEvent, EventCategory, UserRole } from '../types';
@@ -21,6 +22,7 @@ import { parseDateToTimestamp } from '../utils/storage';
 interface EventsViewProps {
   events: SchoolEvent[];
   userRole: UserRole;
+  isCloudAdmin?: boolean;
   onAddEvent: (
     title: string,
     category: EventCategory,
@@ -39,6 +41,7 @@ interface EventsViewProps {
 export const EventsView: React.FC<EventsViewProps> = ({
   events,
   userRole,
+  isCloudAdmin = false,
   onAddEvent,
   onUpdateEvent,
   onDeleteEvent,
@@ -127,12 +130,31 @@ export const EventsView: React.FC<EventsViewProps> = ({
         </div>
       ) : (
         /* Event Form for Coordinator */
-        <EventForm
-          onAddEvent={onAddEvent}
-          editingEvent={editingEvent}
-          onUpdateEvent={onUpdateEvent}
-          onCancelEdit={() => setEditingEvent(null)}
-        />
+        <div className="space-y-4">
+          {!isCloudAdmin && (
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <Cloud className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-900 dark:text-amber-200">
+                  <strong>Sincronização na nuvem pendente:</strong> Conecte a conta Google da Coordenação para que os eventos publicados aqui apareçam para todos os visitantes do site.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onOpenAuthModal}
+                className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold transition shrink-0 self-start sm:self-auto cursor-pointer"
+              >
+                Conectar Google
+              </button>
+            </div>
+          )}
+          <EventForm
+            onAddEvent={onAddEvent}
+            editingEvent={editingEvent}
+            onUpdateEvent={onUpdateEvent}
+            onCancelEdit={() => setEditingEvent(null)}
+          />
+        </div>
       )}
 
       {/* Events Filter & Search */}

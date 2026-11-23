@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { User } from 'firebase/auth';
 import {
   ShieldCheck,
   GraduationCap,
@@ -9,10 +10,17 @@ import {
   CheckCircle2,
   X,
   KeyRound,
-  UserCheck,
+  Cloud,
+  LogOut,
+  LogIn,
 } from 'lucide-react';
 import { UserRole } from '../types';
 import { getStoredPin, saveStoredPin } from '../utils/storage';
+import {
+  BOOTSTRAPPED_ADMIN_EMAIL,
+  signInCoordinatorWithGoogle,
+  signOutCoordinator,
+} from '../firebase';
 
 interface RoleAuthModalProps {
   isOpen: boolean;
@@ -20,6 +28,8 @@ interface RoleAuthModalProps {
   currentRole: UserRole;
   onRoleChange: (newRole: UserRole) => void;
   onSuccessToast: (msg: string) => void;
+  authUser: User | null;
+  isCloudAdmin: boolean;
 }
 
 export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
@@ -28,10 +38,14 @@ export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
   currentRole,
   onRoleChange,
   onSuccessToast,
+  authUser,
+  isCloudAdmin,
 }) => {
   const [pinInput, setPinInput] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [authErrorMsg, setAuthErrorMsg] = useState<string | null>(null);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const [isChangingPin, setIsChangingPin] = useState(false);
   const [newPin, setNewPin] = useState('');
   const [confirmNewPin, setConfirmNewPin] = useState('');
@@ -44,18 +58,58 @@ export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
     e.preventDefault();
     if (pinInput.trim() === currentSavedPin) {
       onRoleChange('coordenador');
-      onSuccessToast('Acesso de Coordenador liberado: agora você pode alterar tarefas, horários, cardápio e eventos!');
       setPinInput('');
       setErrorMsg(null);
-      onClose();
+      if (isCloudAdmin) {
+        onSuccessToast('Acesso de Coordenador liberado com sincronização na nuvem!');
+        onClose();
+      } else {
+        onSuccessToast('Senha confirmada! Conecte a conta Google abaixo para publicar para todos.');
+      }
     } else {
       setErrorMsg('Senha incorreta. Acesso exclusivo da Coordenação/Direção.');
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setAuthErrorMsg(null);
+    setIsSigningIn(true);
+    try {
+      const user = await signInCoordinatorWithGoogle();
+      onSuccessToast(`Conta conectada: ${user.email || 'Coordenador'}`);
+    } catch (err: unknown) {
+      const code =
+        err && typeof err === 'object' && 'code' in err
+          ? String((err as { code?: unknown }).code)
+          : '';
+      if (code === 'auth/unauthorized-domain') {
+        const host = typeof window !== 'undefined' ? window.location.hostname : 'seu-site.vercel.app';
+        setAuthErrorMsg(
+          `Domínio "${host}" não autorizado no Firebase Auth. Adicione "${host}" em Firebase Console → Authentication → Settings → Authorized domains.`
+        );
+      } else if (code === 'auth/popup-blocked') {
+        setAuthErrorMsg(
+          'O navegador bloqueou a janela de login do Google. Permita pop-ups para este site e tente novamente.'
+        );
+      } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        setAuthErrorMsg('Login cancelado. Clique novamente para conectar a conta Google da Coordenação.');
+      } else {
+        setAuthErrorMsg('Não foi possível conectar com o Google. Verifique sua conexão e tente novamente.');
+      }
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  const handleGoogleSignOut = async () => {
+    setAuthErrorMsg(null);
+    await signOutCoordinator();
+    onSuccessToast('Conta Google desconectada.');
+  };
+
   const handleSwitchToStudent = () => {
     onRoleChange('aluno');
-    onSuccessToast('Você está no Modo Aluno (somente leitura para horários, tarefas, eventos e cardápio).');
+    onSuccessToast('Você está no Modo Aluno (visualização das publicações da escola).');
     onClose();
   };
 
@@ -80,12 +134,12 @@ export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in overflow-y-auto"
       id="role-auth-modal-overlay"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 relative transition-colors"
+        className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 dark:border-slate-800 relative transition-colors my-8"
         onClick={(e) => e.stopPropagation()}
         id="role-auth-modal-content"
       >
@@ -127,8 +181,8 @@ export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
             )}
             <div>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Perfil Atual Ativo:</p>
-              <p className="text-sm font-bold text-slate-800 dark:text-slate-100 capitalize">
-                {currentRole === 'coordenador' ? '🛡️ Coordenador Pedagógico' : '🎓 Aluno (Leitor)'}
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                {currentRole === 'coordenador' ? 'Coordenador Pedagógico' : 'Aluno (Leitor)'}
               </p>
             </div>
           </div>
@@ -158,7 +212,7 @@ export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
         {currentRole === 'aluno' ? (
           <form onSubmit={handleLoginAsCoordinator} className="space-y-4">
             <div className="bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3.5 text-xs text-emerald-800 dark:text-emerald-200 leading-relaxed">
-              <strong>Área Restrita da Coordenação:</strong> Apenas no Modo Coordenador é possível cadastrar, editar, excluir ou restaurar horários de aula, tarefas, cardápio da merenda e eventos da escola.
+              <strong>Área Restrita da Coordenação:</strong> Apenas no Modo Coordenador é possível cadastrar, editar ou excluir eventos, tarefas, horários e merenda para todos os alunos.
             </div>
 
             <div>
@@ -201,13 +255,70 @@ export const RoleAuthModal: React.FC<RoleAuthModalProps> = ({
           </form>
         ) : (
           <div className="space-y-4">
-            <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl p-3.5 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-              <div>
-                <strong>Modo Coordenador Ativado</strong>
-                <p className="mt-0.5 text-emerald-700 dark:text-emerald-300">
-                  Você tem permissão para cadastrar provas, agendar reuniões, editar e excluir qualquer evento escolar.
-                </p>
+            {/* Cloud Publish / Google Auth Section */}
+            <div
+              className={`rounded-xl p-3.5 border text-xs space-y-2.5 ${
+                isCloudAdmin
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                  : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+              }`}
+            >
+              <div className="flex items-start gap-2.5">
+                {isCloudAdmin ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                ) : (
+                  <Cloud className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1">
+                  <strong className="block">
+                    {isCloudAdmin
+                      ? 'Publicação em Tempo Real Conectada'
+                      : 'Conecte sua Conta Google para Publicar para Todos'}
+                  </strong>
+                  {isCloudAdmin ? (
+                    <p className="mt-0.5 opacity-90">
+                      Conectado como <strong>{authUser?.email}</strong>. Tudo o que você adicionar aqui aparecerá imediatamente para todos os alunos que acessarem o site.
+                    </p>
+                  ) : authUser ? (
+                    <p className="mt-0.5 opacity-90">
+                      A conta <strong>{authUser.email}</strong> não tem permissão de escrita. Entre com a conta autorizada da Coordenação (<strong>{BOOTSTRAPPED_ADMIN_EMAIL}</strong>).
+                    </p>
+                  ) : (
+                    <p className="mt-0.5 opacity-90">
+                      Para garantir que eventos, tarefas, horários e merenda sejam gravados no banco de dados e apareçam para todos os visitantes, entre com a conta Google autorizada da Coordenação.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {authErrorMsg && (
+                <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-[11px] leading-relaxed">
+                  {authErrorMsg}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 pt-1">
+                {!isCloudAdmin ? (
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignIn}
+                    disabled={isSigningIn}
+                    className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                    id="coordinator-google-signin-btn"
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    {isSigningIn ? 'Conectando...' : 'Conectar Conta Google da Coordenação'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleGoogleSignOut}
+                    className="py-1.5 px-3 rounded-lg bg-white/80 dark:bg-slate-800 hover:bg-white text-slate-700 dark:text-slate-200 border border-emerald-200 dark:border-slate-700 font-semibold text-[11px] transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    Desconectar Conta Google
+                  </button>
+                )}
               </div>
             </div>
 
