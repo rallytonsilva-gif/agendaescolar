@@ -25,6 +25,7 @@ import {
   saveStoredRole,
   getStoredTheme,
   saveStoredTheme,
+  runStorageMigrations,
 } from './utils/storage';
 import { Header } from './components/Header';
 import { StatsBanner } from './components/StatsBanner';
@@ -66,12 +67,13 @@ export default function App() {
     saveStoredTheme(theme);
   }, [theme]);
 
-  // Carregar dados salvos no localStorage
+  // Carregar dados salvos no localStorage e executar migrações
   useEffect(() => {
+    runStorageMigrations();
     const loadedTasks = getStoredTasks();
     const loadedEvents = getStoredEvents();
     const loadedMeals = getStoredMeals();
-    const loadedSchedule = sanitizeSchedule(getStoredSchedule());
+    const loadedSchedule = getStoredSchedule();
     const loadedRole = getStoredRole();
     const loadedTheme = getStoredTheme();
     setTasks(loadedTasks);
@@ -81,6 +83,17 @@ export default function App() {
     setUserRole(loadedRole);
     setTheme(loadedTheme);
     setIsLoaded(true);
+
+    const handleStorageSync = () => {
+      setTasks(getStoredTasks());
+      setEvents(getStoredEvents());
+      setMeals(getStoredMeals());
+      setSchedule(getStoredSchedule());
+      setUserRole(getStoredRole());
+      setTheme(getStoredTheme());
+    };
+    window.addEventListener('storage', handleStorageSync);
+    return () => window.removeEventListener('storage', handleStorageSync);
   }, []);
 
   const handleToggleTheme = () => {
@@ -285,16 +298,16 @@ export default function App() {
       return;
     }
 
-    // Remove qualquer período que tenha o mesmo ID OU o mesmo dia e número de período (evita duplicar 1º horário)
-    const cleaned = schedule.filter(
-      (p) =>
-        p.id !== updatedPeriod.id &&
-        !(p.dayOfWeek === updatedPeriod.dayOfWeek && p.periodNumber === updatedPeriod.periodNumber)
-    );
-
-    const updated = sanitizeSchedule([...cleaned, updatedPeriod]);
-    setSchedule(updated);
-    saveStoredSchedule(updated);
+    setSchedule((prev) => {
+      const cleaned = prev.filter(
+        (p) =>
+          p.id !== updatedPeriod.id &&
+          !(p.dayOfWeek === updatedPeriod.dayOfWeek && p.periodNumber === updatedPeriod.periodNumber)
+      );
+      const updated = sanitizeSchedule([...cleaned, updatedPeriod]);
+      saveStoredSchedule(updated);
+      return updated;
+    });
   };
 
   const handleDeletePeriod = (periodId: string) => {
@@ -303,9 +316,11 @@ export default function App() {
       return;
     }
 
-    const updated = schedule.filter((p) => p.id !== periodId);
-    setSchedule(updated);
-    saveStoredSchedule(updated);
+    setSchedule((prev) => {
+      const updated = prev.filter((p) => p.id !== periodId);
+      saveStoredSchedule(updated);
+      return updated;
+    });
   };
 
   const handleResetSchedule = () => {

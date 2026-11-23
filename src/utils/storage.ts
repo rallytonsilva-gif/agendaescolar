@@ -7,6 +7,9 @@ export const SCHEDULE_STORAGE_KEY = '@school_agenda_schedule';
 export const ROLE_STORAGE_KEY = '@school_agenda_user_role';
 export const PIN_STORAGE_KEY = '@school_agenda_coord_pin';
 export const THEME_STORAGE_KEY = '@school_agenda_theme';
+export const SCHEDULE_MIGRATION_KEY = '@school_agenda_schedule_8periods_migrated';
+export const DATA_VERSION_KEY = '@school_agenda_data_version';
+export const CURRENT_DATA_VERSION = '2026-11-23-v2';
 
 export const DEFAULT_TASKS: Task[] = [
   {
@@ -1012,6 +1015,21 @@ export function saveStoredRole(role: UserRole): void {
 
 export const DEFAULT_COORDINATOR_PIN = 'diretor2026';
 
+export function runStorageMigrations(): void {
+  try {
+    const savedPin = localStorage.getItem(PIN_STORAGE_KEY);
+    if (savedPin === '1234') {
+      localStorage.setItem(PIN_STORAGE_KEY, DEFAULT_COORDINATOR_PIN);
+    }
+    const savedVersion = localStorage.getItem(DATA_VERSION_KEY);
+    if (savedVersion !== CURRENT_DATA_VERSION) {
+      localStorage.setItem(DATA_VERSION_KEY, CURRENT_DATA_VERSION);
+    }
+  } catch (error) {
+    console.error('Erro ao executar migração de armazenamento:', error);
+  }
+}
+
 export function getStoredPin(): string {
   try {
     const saved = localStorage.getItem(PIN_STORAGE_KEY);
@@ -1534,8 +1552,11 @@ export function getMealTypeDetails(type: MealType): {
 }
 
 export function sanitizeSchedule(rawList: ClassPeriod[]): ClassPeriod[] {
-  if (!Array.isArray(rawList) || rawList.length === 0) {
+  if (!Array.isArray(rawList)) {
     return DEFAULT_SCHEDULE;
+  }
+  if (rawList.length === 0) {
+    return [];
   }
 
   const days: DayOfWeek[] = ['segunda', 'terca', 'quarta', 'quinta', 'sexta'];
@@ -1546,27 +1567,24 @@ export function sanitizeSchedule(rawList: ClassPeriod[]): ClassPeriod[] {
     const dayClasses = rawList.filter((p) => p && p.dayOfWeek === day);
     if (dayClasses.length === 0) continue;
 
-    // Ordena as aulas do dia: primeiro por horário de início, depois por periodNumber
     const sorted = [...dayClasses].sort((a, b) => {
-      const timeCompare = (a.startTime || '').localeCompare(b.startTime || '');
-      if (timeCompare !== 0) return timeCompare;
-      return (a.periodNumber || 1) - (b.periodNumber || 1);
+      if ((a.periodNumber || 0) !== (b.periodNumber || 0)) {
+        return (a.periodNumber || 1) - (b.periodNumber || 1);
+      }
+      return (a.startTime || '').localeCompare(b.startTime || '');
     });
 
     const usedPeriods = new Set<number>();
     const dayResult: ClassPeriod[] = [];
 
     for (const item of sorted) {
-      let targetPeriod = item.periodNumber || 1;
+      let targetPeriod = item.periodNumber || 0;
 
-      // 1. Tenta identificar o período pelo horário de início padrão (ex.: 07:30 = 1º, 08:20 = 2º, etc.)
-      const slotByStartTime = CLASS_PERIOD_SLOTS.find((s) => s.startTime === item.startTime);
-      if (slotByStartTime && !usedPeriods.has(slotByStartTime.periodNumber)) {
-        targetPeriod = slotByStartTime.periodNumber;
+      if (!targetPeriod || targetPeriod < 1 || targetPeriod > maxSlots) {
+        const slotByStartTime = CLASS_PERIOD_SLOTS.find((s) => s.startTime === item.startTime);
+        targetPeriod = slotByStartTime ? slotByStartTime.periodNumber : 1;
       }
 
-      // 2. Se o período já está ocupado por outra aula neste dia:
-      // Busca o próximo período livre de 1 até maxSlots (8)
       if (usedPeriods.has(targetPeriod)) {
         let nextFree = 1;
         while (nextFree <= maxSlots && usedPeriods.has(nextFree)) {
@@ -1575,7 +1593,6 @@ export function sanitizeSchedule(rawList: ClassPeriod[]): ClassPeriod[] {
         if (nextFree <= maxSlots) {
           targetPeriod = nextFree;
         } else {
-          // Se já excedeu os períodos do dia, descarta aula excedente/duplicada
           continue;
         }
       }
@@ -1588,18 +1605,17 @@ export function sanitizeSchedule(rawList: ClassPeriod[]): ClassPeriod[] {
         id: item.id || `sch-${day}-${targetPeriod}`,
         dayOfWeek: day,
         periodNumber: targetPeriod,
-        startTime: slot ? slot.startTime : (item.startTime || '07:30'),
-        endTime: slot ? slot.endTime : (item.endTime || '08:20'),
+        startTime: (item.startTime || '').trim() || slot?.startTime || '07:30',
+        endTime: (item.endTime || '').trim() || slot?.endTime || '08:20',
         subject: (item.subject || '').trim() || 'Aula',
       });
     }
 
-    // Ordena do 1º ao 8º horário
     dayResult.sort((a, b) => a.periodNumber - b.periodNumber);
     sanitized.push(...dayResult);
   }
 
-  return sanitized.length > 0 ? sanitized : DEFAULT_SCHEDULE;
+  return sanitized;
 }
 
 export function getStoredSchedule(): ClassPeriod[] {
@@ -1607,23 +1623,31 @@ export function getStoredSchedule(): ClassPeriod[] {
     const raw = localStorage.getItem(SCHEDULE_STORAGE_KEY);
     if (!raw) {
       localStorage.setItem(SCHEDULE_STORAGE_KEY, JSON.stringify(DEFAULT_SCHEDULE));
+      localStorage.setItem(SCHEDULE_MIGRATION_KEY, 'true');
       return DEFAULT_SCHEDULE;
     }
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      // Auto-migração: se a grade atual tiver menos de 8 aulas por dia, complementa com os horários faltantes
-      const mergedList = [...parsed];
-      for (const defItem of DEFAULT_SCHEDULE) {
-        const slotExists = mergedList.some(
-          (p) => p.dayOfWeek === defItem.dayOfWeek && p.periodNumber === defItem.periodNumber
-        );
-        if (!slotExists) {
-          mergedList.push(defItem);
+    if (Array.isArray(parsed)) {
+      const alreadyMigrated = localStorage.getItem(SCHEDULE_MIGRATION_KEY) === 'true';
+
+      if (!alreadyMigrated) {
+        // Migração única para garantir 8 aulas por dia em dados antigos
+        const mergedList = [...parsed];
+        for (const defItem of DEFAULT_SCHEDULE) {
+          const slotExists = mergedList.some(
+            (p) => p.dayOfWeek === defItem.dayOfWeek && p.periodNumber === defItem.periodNumber
+          );
+          if (!slotExists) {
+            mergedList.push(defItem);
+          }
         }
+        const sanitized = sanitizeSchedule(mergedList);
+        saveStoredSchedule(sanitized);
+        localStorage.setItem(SCHEDULE_MIGRATION_KEY, 'true');
+        return sanitized;
       }
 
-      const sanitized = sanitizeSchedule(mergedList);
-      // Auto-cura: atualiza o localStorage se houver enriquecimento ou correção
+      const sanitized = sanitizeSchedule(parsed);
       if (JSON.stringify(sanitized) !== raw) {
         saveStoredSchedule(sanitized);
       }
