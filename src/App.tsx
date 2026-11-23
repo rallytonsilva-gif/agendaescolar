@@ -546,7 +546,7 @@ export default function App() {
           src="/assets/aistudio/images_362d40e0.png"
           alt=""
           aria-hidden="true"
-          className="fixed inset-0 m-auto w-[85vw] max-w-2xl max-h-[80vh] object-contain opacity-65 dark:opacity-55 crest-bg-image pointer-events-none select-none"
+          className="fixed inset-0 m-auto w-[85vw] max-w-2xl max-h-[80vh] object-contain opacity-40 dark:opacity-55 crest-bg-image pointer-events-none select-none"
         />
         <div className="relative z-10 w-12 h-12 rounded-2xl bg-white/90 dark:bg-slate-900/85 backdrop-blur-md border border-slate-200/80 dark:border-white/15 flex items-center justify-center shadow-xl">
           <div className="animate-spin w-7 h-7 border-3 border-emerald-600 dark:border-emerald-400 border-t-transparent rounded-full" />
@@ -565,7 +565,7 @@ export default function App() {
           src="/assets/aistudio/images_362d40e0.png"
           alt=""
           aria-hidden="true"
-          className="relative w-full max-w-2xl max-h-[82vh] object-contain opacity-80 dark:opacity-65 crest-bg-image select-none"
+          className="relative w-full max-w-2xl max-h-[82vh] object-contain opacity-45 dark:opacity-65 crest-bg-image select-none"
         />
       </div>
 
