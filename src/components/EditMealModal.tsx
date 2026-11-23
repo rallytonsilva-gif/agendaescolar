@@ -42,7 +42,7 @@ export const EditMealModal: React.FC<EditMealModalProps> = ({
       setAllergensText(meal.allergens ? meal.allergens.join(', ') : '');
     } else {
       setTitle('');
-      setTime('12:00 - 13:00');
+      setTime('12:20 - 13:20');
       setSides('');
       setBeverage('');
       setDessert('');
@@ -178,7 +178,7 @@ export const EditMealModal: React.FC<EditMealModalProps> = ({
                   type="text"
                   value={time}
                   onChange={(e) => setTime(e.target.value)}
-                  placeholder="Ex: 12:00 - 13:00"
+                  placeholder="Ex: 12:20 - 13:20"
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-medium text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
                 />
               </div>

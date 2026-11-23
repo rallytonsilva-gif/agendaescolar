@@ -34,8 +34,8 @@ export const EditScheduleModal = ({
   const [gradeSeries, setGradeSeries] = useState<GradeSeries>(initialSeries);
   const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(initialDay);
   const [periodNumber, setPeriodNumber] = useState<number>(1);
-  const [startTime, setStartTime] = useState<string>('07:30');
-  const [endTime, setEndTime] = useState<string>('08:20');
+  const [startTime, setStartTime] = useState<string>('07:00');
+  const [endTime, setEndTime] = useState<string>('08:00');
   const [subject, setSubject] = useState<string>('Matemática');
   const [teacher, setTeacher] = useState<string>('');
   const [room, setRoom] = useState<string>('Sala 102');
@@ -65,8 +65,8 @@ export const EditScheduleModal = ({
       setGradeSeries(resolvedSeries);
       setDayOfWeek(period.dayOfWeek);
       setPeriodNumber(period.periodNumber || 1);
-      setStartTime(period.startTime || '07:30');
-      setEndTime(period.endTime || '08:20');
+      setStartTime(period.startTime || '07:00');
+      setEndTime(period.endTime || '08:00');
       setSubject(period.subject || 'Matemática');
       setTeacher(period.teacher || '');
       setRoom(period.room || defaultRoomForSeries);

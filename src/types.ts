@@ -36,8 +36,8 @@ export interface ClassPeriod {
   id: string;
   gradeSeries?: GradeSeries;
   periodNumber: number; // 1, 2, 3, 4, 5, 6, 7, 8
-  startTime: string; // "07:30"
-  endTime: string; // "08:20"
+  startTime: string; // "07:00"
+  endTime: string; // "08:00"
   dayOfWeek: DayOfWeek;
   subject: string;
   teacher?: string;

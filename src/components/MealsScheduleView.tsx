@@ -146,15 +146,15 @@ export const MealsScheduleView: React.FC<MealsScheduleViewProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-4 border-t border-white/20 text-xs">
             <div className="bg-white/10 backdrop-blur-md p-2.5 rounded-2xl">
               <span className="text-amber-100/80 block text-[10px] font-semibold uppercase">Merenda Matutina</span>
-              <span className="font-bold text-white text-sm">09:30 às 09:50</span>
+              <span className="font-bold text-white text-sm">09:00 às 09:20</span>
             </div>
             <div className="bg-white/10 backdrop-blur-md p-2.5 rounded-2xl">
               <span className="text-amber-100/80 block text-[10px] font-semibold uppercase">Almoço Escolar</span>
-              <span className="font-bold text-white text-sm">12:00 às 13:00</span>
+              <span className="font-bold text-white text-sm">12:20 às 13:20</span>
             </div>
             <div className="bg-white/10 backdrop-blur-md p-2.5 rounded-2xl col-span-2 sm:col-span-1">
               <span className="text-amber-100/80 block text-[10px] font-semibold uppercase">Merenda Vespertina</span>
-              <span className="font-bold text-white text-sm">15:40 às 16:00</span>
+              <span className="font-bold text-white text-sm">16:20 às 16:40</span>
             </div>
           </div>
         </div>

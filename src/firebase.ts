@@ -39,6 +39,8 @@ import {
   DEFAULT_MEALS,
   DEFAULT_SCHEDULE,
   sanitizeSchedule,
+  remapLegacySlotTimes,
+  remapLegacyMealTime,
 } from './utils/storage';
 
 export const BOOTSTRAPPED_ADMIN_EMAIL = 'rallyton.silva@aluno.edu.pi.gov.br';
@@ -219,8 +221,8 @@ function buildPeriodDoc(period: ClassPeriod, authorUid: string) {
     gradeSeries: normalizeGradeSeries(period.gradeSeries),
     dayOfWeek: period.dayOfWeek,
     periodNumber: Math.min(8, Math.max(1, Number(period.periodNumber) || 1)),
-    startTime: clampStr(period.startTime, 10) || '07:30',
-    endTime: clampStr(period.endTime, 10) || '08:20',
+    startTime: clampStr(period.startTime, 10) || '07:00',
+    endTime: clampStr(period.endTime, 10) || '08:00',
     subject: clampStr(period.subject, 80) || 'Aula',
     authorUid,
     updatedAt: serverTimestamp(),
@@ -239,7 +241,7 @@ function buildMealDoc(meal: SchoolMeal, authorUid: string) {
     id: sanitizeId(meal.id, 'meal'),
     dayOfWeek: meal.dayOfWeek,
     mealType: meal.mealType,
-    time: clampStr(meal.time, 30) || '12:00 - 13:00',
+    time: clampStr(meal.time, 30) || '12:20 - 13:20',
     title: clampStr(meal.title, 160) || 'Refeição Escolar',
     authorUid,
     updatedAt: serverTimestamp(),
@@ -338,13 +340,20 @@ export function subscribeSchedule(
     (snapshot) => {
       const rawList: ClassPeriod[] = snapshot.docs.map((d) => {
         const raw = d.data();
+        const updatedAtMs = toMillis(raw.updatedAt);
+        const rawStart = String(raw.startTime || '07:00');
+        const rawEnd = String(raw.endTime || '08:00');
+        const times =
+          !updatedAtMs || updatedAtMs <= LEGACY_SCHEDULE_CUTOFF_MS
+            ? remapLegacySlotTimes(rawStart, rawEnd)
+            : { startTime: rawStart, endTime: rawEnd };
         return {
           id: String(raw.id || d.id),
           gradeSeries: normalizeGradeSeries(raw.gradeSeries),
           dayOfWeek: (raw.dayOfWeek as DayOfWeek) || 'segunda',
           periodNumber: Number(raw.periodNumber) || 1,
-          startTime: String(raw.startTime || '07:30'),
-          endTime: String(raw.endTime || '08:20'),
+          startTime: times.startTime,
+          endTime: times.endTime,
           subject: String(raw.subject || ''),
           teacher: typeof raw.teacher === 'string' && raw.teacher ? raw.teacher : undefined,
           room: typeof raw.room === 'string' && raw.room ? raw.room : undefined,
@@ -370,11 +379,17 @@ export function subscribeMeals(
     (snapshot) => {
       const list: SchoolMeal[] = snapshot.docs.map((d) => {
         const raw = d.data();
+        const updatedAtMs = toMillis(raw.updatedAt);
+        const rawTime = String(raw.time || '');
+        const mappedMealTime =
+          !updatedAtMs || updatedAtMs <= LEGACY_SCHEDULE_CUTOFF_MS
+            ? remapLegacyMealTime(rawTime).time
+            : rawTime;
         return {
           id: String(raw.id || d.id),
           dayOfWeek: (raw.dayOfWeek as DayOfWeek) || 'segunda',
           mealType: (raw.mealType as MealType) || 'almoco',
-          time: String(raw.time || ''),
+          time: mappedMealTime,
           title: String(raw.title || ''),
           sides: typeof raw.sides === 'string' && raw.sides ? raw.sides : undefined,
           beverage: typeof raw.beverage === 'string' && raw.beverage ? raw.beverage : undefined,
@@ -387,7 +402,7 @@ export function subscribeMeals(
           allergens: Array.isArray(raw.allergens)
             ? raw.allergens.filter((x: unknown): x is string => typeof x === 'string')
             : undefined,
-          updatedAt: toMillis(raw.updatedAt),
+          updatedAt: updatedAtMs,
         };
       });
       onData(list, snapshot.empty);
@@ -528,6 +543,7 @@ async function replaceCollection(
 }
 
 export const LEGACY_EVENTS_CUTOFF_MS = 1795455530000;
+export const LEGACY_SCHEDULE_CUTOFF_MS = 1795456800000;
 
 export async function deleteAllEventsInFirestore(): Promise<void> {
   const path = 'events';
@@ -577,6 +593,26 @@ export async function seedEmptyCollectionsIfNeeded(authorUid: string): Promise<v
         ops++;
       });
     } else {
+      // Migrate existing pre-cutoff 07:30-start schedule docs to 07:00-start
+      schSnap.docs.forEach((d) => {
+        const raw = d.data();
+        const updatedAtMs = toMillis(raw.updatedAt);
+        if (!updatedAtMs || updatedAtMs <= LEGACY_SCHEDULE_CUTOFF_MS) {
+          const remapped = remapLegacySlotTimes(
+            String(raw.startTime || ''),
+            String(raw.endTime || '')
+          );
+          if (remapped.changed) {
+            batch.update(d.ref, {
+              startTime: remapped.startTime,
+              endTime: remapped.endTime,
+              updatedAt: serverTimestamp(),
+            });
+            ops++;
+          }
+        }
+      });
+
       const existingSeries = new Set<GradeSeries>(
         schSnap.docs.map((d) => normalizeGradeSeries(d.data().gradeSeries))
       );
@@ -594,6 +630,21 @@ export async function seedEmptyCollectionsIfNeeded(authorUid: string): Promise<v
         const id = sanitizeId(m.id, 'meal');
         batch.set(doc(db, 'meals', id), buildMealDoc({ ...m, id }, authorUid));
         ops++;
+      });
+    } else {
+      mealSnap.docs.forEach((d) => {
+        const raw = d.data();
+        const updatedAtMs = toMillis(raw.updatedAt);
+        if (!updatedAtMs || updatedAtMs <= LEGACY_SCHEDULE_CUTOFF_MS) {
+          const remapped = remapLegacyMealTime(String(raw.time || ''));
+          if (remapped.changed) {
+            batch.update(d.ref, {
+              time: remapped.time,
+              updatedAt: serverTimestamp(),
+            });
+            ops++;
+          }
+        }
       });
     }
 

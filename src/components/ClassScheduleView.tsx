@@ -246,7 +246,7 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
             ) : (
               <div className="flex items-center gap-1.5 text-xs bg-black/20 backdrop-blur-md px-3 py-1 rounded-full font-medium text-emerald-100">
                 <Calendar className="w-3.5 h-3.5 text-lime-300" />
-                <span>Turno Matutino: 07:30 às 12:00 · {currentTimeStr} Brasília</span>
+                <span>Turno Matutino: 07:00 às 12:20 · {currentTimeStr} Brasília</span>
               </div>
             )}
           </div>
@@ -708,7 +708,7 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
                               Intervalo / Merenda Escolar da Manhã
                             </span>
                             <span className="text-[11px] text-amber-700 dark:text-amber-300 block sm:inline sm:ml-2">
-                              09:10 às 09:30 (20 minutos de recreio)
+                              09:00 às 09:20 (20 minutos de recreio)
                             </span>
                           </div>
                         </div>
@@ -743,7 +743,7 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
                               Almoço Escolar & Intervalo Principal
                             </span>
                             <span className="text-[11px] text-emerald-700 dark:text-emerald-300 block sm:inline sm:ml-2">
-                              12:00 às 13:00 (1 hora de intervalo para almoço e descanso)
+                              12:20 às 13:20 (1 hora de intervalo para almoço e descanso)
                             </span>
                           </div>
                         </div>
@@ -768,7 +768,7 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
                               Merenda da Tarde & Encerramento do Dia
                             </span>
                             <span className="text-[11px] text-teal-700 dark:text-teal-300 block sm:inline sm:ml-2">
-                              15:40 às 16:00 (8 aulas concluídas)
+                              16:20 às 16:40 (8 aulas de 1h concluídas)
                             </span>
                           </div>
                         </div>
@@ -953,7 +953,7 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
                             colSpan={6}
                             className="py-2 px-4 text-center text-xs font-bold text-amber-800 dark:text-amber-300 border-y border-amber-200/60 dark:border-amber-900/40"
                           >
-                            ☕ 09:10 às 09:30 — Intervalo & Merenda da Manhã (20 min)
+                            ☕ 09:00 às 09:20 — Intervalo & Merenda da Manhã (20 min)
                           </td>
                         </tr>
                       )}
@@ -965,7 +965,7 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
                             colSpan={6}
                             className="py-2.5 px-4 text-center text-xs font-bold text-emerald-800 dark:text-emerald-300 border-y border-emerald-200/60 dark:border-emerald-900/40"
                           >
-                            🍱 12:00 às 13:00 — Almoço Escolar & Intervalo Principal (1h)
+                            🍱 12:20 às 13:20 — Almoço Escolar & Intervalo Principal (1h)
                           </td>
                         </tr>
                       )}
@@ -977,7 +977,7 @@ export const ClassScheduleView: React.FC<ClassScheduleViewProps> = ({
                             colSpan={6}
                             className="py-2 px-4 text-center text-xs font-bold text-teal-800 dark:text-teal-300 border-t border-teal-200/60 dark:border-teal-900/40"
                           >
-                            🥤 15:40 às 16:00 — Merenda da Tarde & Saída
+                            🥤 16:20 às 16:40 — Merenda da Tarde & Saída
                           </td>
                         </tr>
                       )}
